@@ -1,4 +1,8 @@
 import p5 from "p5";
+import {
+  introSimulationFactory,
+  drawIntro,
+} from "./scenes/introSimulationFactory";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");
@@ -7,9 +11,34 @@ if (!rootEl) {
 }
 main(rootEl);
 
+type AnimationScenes = {
+  sceneId: string;
+  readonly simulation?: Record<string, any>;
+};
+
+type GameSceneState =
+  | (
+      | {
+          sceneId: "START_NULL";
+        }
+      | {
+          sceneId: "CRAWL_INTRO";
+          simulation: ReturnType<typeof introSimulationFactory>;
+        }
+    ) &
+      AnimationScenes;
+
 function myP5(p: p5) {
+  let isPaused = false;
+  function logGameState() {
+    console.log(gameSceneState);
+  }
+
   let font: p5.Font;
-  let helloWorldTextRotation = 0;
+
+  let gameSceneState: GameSceneState = {
+    sceneId: "START_NULL",
+  };
 
   // user code goes here
   Object.assign(p, {
@@ -20,27 +49,48 @@ function myP5(p: p5) {
       );
     },
     setup() {
+      // Key-bindings setup
+      document.addEventListener("keypress", function (e) {
+        if (e.code === "KeyP") {
+          isPaused = !isPaused;
+        } else if (e.code === "KeyD") {
+          logGameState();
+        }
+      });
+
+      // ENGINE SETUP
+      p.frameRate(60); // set framerate target
       p.createCanvas(800, 600, p.WEBGL);
-      p.background("skyblue");
-      // setup some basic default text + font size
+      p.background("black");
+
+      // BASE TEXT SETUP
       p.textFont(font);
       p.textSize(36);
-      // ...
+      p.textAlign(p.LEFT, p.BOTTOM);
     },
     draw() {
-      // clear screen with background color
-      p.background("skyblue");
-
-      // Hello P5.js!
-      p.push();
-      p.textAlign(p.CENTER, p.CENTER);
-      if (p.frameCount % 3 === 0) {
-        helloWorldTextRotation += 0.03125;
+      // no-op while paused, freeze both drawing + simulation steps
+      if (isPaused) {
+        return;
       }
-      p.rotateY(p.PI * helloWorldTextRotation);
-      p.text("Hello P5.js!", 0, 0);
-      p.pop();
-      // ...
+      // clear screen
+      p.background("black");
+
+      if (gameSceneState.sceneId === "START_NULL") {
+        // TRANSITION
+        gameSceneState = {
+          sceneId: "CRAWL_INTRO",
+          simulation: introSimulationFactory(p, {
+            introTextPos: {
+              posX: 0,
+              posY: p.height / 2,
+            },
+          }),
+        };
+      } else if (gameSceneState.sceneId === "CRAWL_INTRO") {
+        gameSceneState.simulation.tick();
+        drawIntro(p, gameSceneState.simulation.state);
+      }
     },
   } satisfies Pick<typeof p, "preload" | "setup" | "draw">);
 }
