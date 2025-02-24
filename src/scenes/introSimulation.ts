@@ -1,4 +1,4 @@
-import p5 from "p5";
+import type p5 from "p5";
 import { TStateTickMachine } from "./types";
 
 /** The data model used for the intro animation */
@@ -71,14 +71,28 @@ function introSimulationUpdater(
 }
 
 export function introSimulationFactory(
-  p: p5
+  p: p5,
+  // A callback to trigger when simulation is ready to go to the next scene
+  next: (state: IntroSimulationState) => void
 ): TStateTickMachine<IntroSimulationState> {
+  const stateMachine = {
+    state: createInitialIntroSimulationState(p),
+    tick() {
+      this.state = introSimulationUpdater(p, this.state);
+      return this.state;
+    },
+  };
+
+  // do some JS this-binding
+  stateMachine.tick = stateMachine.tick.bind(stateMachine);
+
   const unmountSpecialKeyHandlers = new AbortController();
   document.addEventListener(
     "keydown",
     function (e) {
       if (e.code === "KeyS") {
-        window.alert("starting!");
+        cleanup();
+        next(stateMachine.state);
       }
     },
     {
@@ -86,18 +100,10 @@ export function introSimulationFactory(
     }
   );
 
-  const stateMachine = {
-    state: createInitialIntroSimulationState(p),
-    tick() {
-      this.state = introSimulationUpdater(p, this.state);
-      return this.state;
-    },
-    cleanup() {
-      unmountSpecialKeyHandlers.abort();
-    },
-  };
-  stateMachine.tick = stateMachine.tick.bind(stateMachine);
-  // cast to ensure user doesn't update state manually
+  function cleanup() {
+    unmountSpecialKeyHandlers.abort();
+  }
+
   return stateMachine;
 }
 export function drawIntro(p: p5, state: IntroSimulationState) {

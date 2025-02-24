@@ -1,5 +1,6 @@
 import p5 from "p5";
 import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
+import { gameSimulationFactory } from "./scenes/gameSimulation";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");
@@ -21,6 +22,13 @@ type GameSceneState =
       | {
           sceneId: "CRAWL_INTRO";
           simulation: ReturnType<typeof introSimulationFactory>;
+        }
+      | {
+          sceneId: "SPACE_INVADERS_GAME";
+          simulation: ReturnType<typeof gameSimulationFactory>;
+        }
+      | {
+          sceneId: "END";
         }
     ) &
       AnimationScenes;
@@ -77,11 +85,25 @@ function myP5(p: p5) {
         // TRANSITION
         gameSceneState = {
           sceneId: "CRAWL_INTRO",
-          simulation: introSimulationFactory(p),
+          simulation: introSimulationFactory(p, () => {
+            gameSceneState = {
+              sceneId: "SPACE_INVADERS_GAME",
+              simulation: gameSimulationFactory(p, () => {
+                gameSceneState = {
+                  sceneId: "END",
+                };
+              }),
+            };
+          }),
         };
       } else if (gameSceneState.sceneId === "CRAWL_INTRO") {
         gameSceneState.simulation.tick();
         drawIntro(p, gameSceneState.simulation.state);
+      } else if (gameSceneState.sceneId === "SPACE_INVADERS_GAME") {
+        gameSceneState.simulation.tick();
+        // draw...
+      } else if (gameSceneState.sceneId === "END") {
+        window.alert("END!");
       }
     },
   } satisfies Pick<typeof p, "preload" | "setup" | "draw">);
