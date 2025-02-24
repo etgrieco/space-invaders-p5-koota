@@ -1,8 +1,5 @@
 import p5 from "p5";
-import {
-  introSimulationFactory,
-  drawIntro,
-} from "./scenes/introSimulationFactory";
+import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");
@@ -80,12 +77,7 @@ function myP5(p: p5) {
         // TRANSITION
         gameSceneState = {
           sceneId: "CRAWL_INTRO",
-          simulation: introSimulationFactory(p, {
-            introTextPos: {
-              posX: 0,
-              posY: p.height / 2,
-            },
-          }),
+          simulation: introSimulationFactory(p),
         };
       } else if (gameSceneState.sceneId === "CRAWL_INTRO") {
         gameSceneState.simulation.tick();

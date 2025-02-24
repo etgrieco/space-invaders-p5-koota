@@ -3,25 +3,50 @@ import { TStateTickMachine } from "./types";
 
 /** The data model used for the intro animation */
 type IntroSimulationState = {
+  introTextBoundary: {
+    readonly posY: number;
+  };
   introTextPos: {
     posX: number;
     posY: number;
   };
 };
+
+function createInitialIntroSimulationState(p: p5): IntroSimulationState {
+  return {
+    introTextBoundary: {
+      posY: p.textSize(),
+    },
+    introTextPos: {
+      posX: 0,
+      posY: p.height / 2,
+    },
+  };
+}
+
 function introSimulationUpdater(
   p: p5,
   state: IntroSimulationState
 ): IntroSimulationState {
   const CRAWL_INTRO_SPEED = p.frameRate() * p.deltaTime * 0.001;
-  state.introTextPos.posY -= CRAWL_INTRO_SPEED;
+
+  const isHittingCeiling =
+    state.introTextPos.posY <= state.introTextBoundary.posY;
+
+  // TODO: Refactor into a generic collision system
+  if (!isHittingCeiling) {
+    // TODO: Refactor into a generic position/velocity system
+    state.introTextPos.posY -= CRAWL_INTRO_SPEED;
+  }
+
   return state;
 }
+
 export function introSimulationFactory(
-  p: p5,
-  initialState: IntroSimulationState
+  p: p5
 ): TStateTickMachine<IntroSimulationState> {
   const stateMachine = {
-    state: initialState,
+    state: createInitialIntroSimulationState(p),
     tick() {
       this.state = introSimulationUpdater(p, this.state);
       return this.state;
