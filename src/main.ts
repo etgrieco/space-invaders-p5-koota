@@ -1,6 +1,6 @@
 import p5 from "p5";
 import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
-import { gameSimulationFactory } from "./scenes/gameSimulation";
+import { drawGame, gameSimulationFactory } from "./scenes/gameSimulation";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");
@@ -45,6 +45,11 @@ function myP5(p: p5) {
     sceneId: "START_NULL",
   };
 
+  const nextTickQueue: Array<() => void> = [];
+  const queueNextTick = (cb: () => void) => () => {
+    nextTickQueue.push(cb);
+  };
+
   // user code goes here
   Object.assign(p, {
     preload() {
@@ -74,6 +79,11 @@ function myP5(p: p5) {
       p.textAlign(p.LEFT, p.BOTTOM);
     },
     draw() {
+      nextTickQueue.forEach((fn) => {
+        return fn();
+      });
+      nextTickQueue.length = 0;
+
       // no-op while paused, freeze both drawing + simulation steps
       if (isPaused) {
         return;
@@ -82,28 +92,39 @@ function myP5(p: p5) {
       p.background("black");
 
       if (gameSceneState.sceneId === "START_NULL") {
-        // TRANSITION
+        // set up basically one big machine to kick off
         gameSceneState = {
           sceneId: "CRAWL_INTRO",
-          simulation: introSimulationFactory(p, () => {
-            gameSceneState = {
-              sceneId: "SPACE_INVADERS_GAME",
-              simulation: gameSimulationFactory(p, () => {
-                gameSceneState = {
-                  sceneId: "END",
-                };
-              }),
-            };
-          }),
+          simulation: introSimulationFactory(
+            p,
+            queueNextTick(() => {
+              gameSceneState = {
+                sceneId: "SPACE_INVADERS_GAME",
+                simulation: gameSimulationFactory(
+                  p,
+                  queueNextTick(() => {
+                    gameSceneState = {
+                      sceneId: "END",
+                    };
+                  })
+                ),
+              };
+            })
+          ),
         };
       } else if (gameSceneState.sceneId === "CRAWL_INTRO") {
         gameSceneState.simulation.tick();
         drawIntro(p, gameSceneState.simulation.state);
       } else if (gameSceneState.sceneId === "SPACE_INVADERS_GAME") {
         gameSceneState.simulation.tick();
-        // draw...
+        drawGame(p, gameSceneState.simulation.state);
       } else if (gameSceneState.sceneId === "END") {
-        window.alert("END!");
+        // just draw
+        p.push();
+        p.textAlign("center", "bottom");
+        p.fill([178, 222, 39, 255]);
+        p.text("GAME OVER", 0, 0);
+        p.pop();
       }
     },
   } satisfies Pick<typeof p, "preload" | "setup" | "draw">);
