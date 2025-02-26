@@ -7,6 +7,7 @@ type DrawableSquare = { squareSize: number; fillColor: string };
 type Velocity = { xVel: number; yVel: number };
 type TwoWayControl = { dir: "e" | "w" | "none" };
 type ThrustVel = { absThrust: number };
+type RelativePos = { posX: number; posY: number };
 
 type GameSimulationState = {
   world: World;
@@ -14,13 +15,8 @@ type GameSimulationState = {
   playerEntity: Entity;
 };
 
-type FollowerOfRelativePosStore = {
-  relativePos: { posX: number; posY: number };
-};
-
-const FollowerOfRelation = relation<FollowerOfRelativePosStore>({
+const FollowerOfRelation = relation({
   exclusive: true,
-  store: { relativePos: { posX: 0, posY: 0 } },
 });
 
 const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
@@ -35,6 +31,7 @@ const TwoWayControlTrait = trait<TwoWayControl>({
 const ThrustVelTrait = trait<ThrustVel>({
   absThrust: 0,
 });
+const RelativePosTrait = trait<RelativePos>({ posX: 0, posY: 0 });
 
 const IsEnemy = trait();
 const IsPlayer = trait();
@@ -64,7 +61,7 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
       // spawn enemy ships
-      const enemyShipEntity = world.spawn(
+      world.spawn(
         PositionTrait({
           posX: enemySwarmAnchorPosition.posX + col * 50,
           posY: enemySwarmAnchorPosition.posY + row * 50,
@@ -74,15 +71,13 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
           squareSize: 25,
         }),
         IsEnemy,
-        FollowerOfRelation(enemySwarmAnchorEntity)
-      );
-      // Assign to the swarm, and set relative position metadata on the relationship
-      enemyShipEntity.set(FollowerOfRelation(enemySwarmAnchorEntity), {
-        relativePos: {
+        FollowerOfRelation(enemySwarmAnchorEntity),
+        // A position relative to the swarm
+        RelativePosTrait({
           posX: col * 50,
           posY: row * 50,
-        },
-      } satisfies FollowerOfRelativePosStore);
+        })
+      );
     }
   }
 
@@ -189,30 +184,14 @@ export function gameSimulationFactory(
 
       // Handle following transform behavior
       this.state.world
-        .query(PositionTrait, FollowerOfRelation("*"))
-        .forEach((e) => {
-          const entityFollowingTarget = assertPresent(
-            e.targetFor(FollowerOfRelation)
+        .query(PositionTrait, RelativePosTrait, FollowerOfRelation("*"))
+        .updateEach(([pos, relativePos], e) => {
+          const target = assertPresent(e.targetFor(FollowerOfRelation));
+          const followedEntityTargetPos = assertPresent(
+            target.get(PositionTrait)
           );
-
-          entityFollowingTarget.get(FollowerOfRelation(entityFollowingTarget));
-
-          const entityFollowingTargetPosition = assertPresent(
-            entityFollowingTarget.get(PositionTrait)
-          );
-
-          const followerOfData = e.get(
-            FollowerOfRelation(entityFollowingTarget)
-          ) as FollowerOfRelativePosStore;
-
-          e.set(PositionTrait, {
-            posX:
-              entityFollowingTargetPosition.posX +
-              followerOfData.relativePos.posX,
-            posY:
-              entityFollowingTargetPosition.posY +
-              followerOfData.relativePos.posY,
-          });
+          pos.posX = followedEntityTargetPos.posX + relativePos.posX;
+          pos.posY = followedEntityTargetPos.posY + relativePos.posY;
         });
 
       // Handle TwoWayControl behavior on velocity
