@@ -12,6 +12,7 @@ type Follows = {
 
 type GameSimulationState = {
   world: World;
+  /** @deprecated Use koota world player */
   playerShipPos: Position;
   enemySwarmAnchor: Position & Velocity;
 };
@@ -27,6 +28,7 @@ const DrawableSquareTrait = trait<DrawableSquare>({
 });
 /** Tags an enemy, for collision/game over condition purposes */
 const IsEnemy = trait();
+const IsPlayer = trait();
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
   const world = createWorld();
@@ -66,6 +68,15 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
     }
   }
 
+  world.spawn(
+    PositionTrait({
+      posX: 0,
+      posY: p.height / 2 - 100,
+    }),
+    IsPlayer,
+    DrawableSquareTrait({ fillColor: "red", squareSize: 50 })
+  );
+
   return {
     world,
     playerShipPos: {
@@ -81,7 +92,6 @@ export function gameSimulationFactory(
   // A callback to trigger when simulation is ready to go to the next scene
   next: (state: GameSimulationState) => void
 ): TStateTickMachine<GameSimulationState> {
-  // DEBUG SIDE-EFFECT
   const state = {
     state: createInitialGameSimulationState(p),
     tick() {
@@ -114,12 +124,17 @@ export function gameSimulationFactory(
       for (const entity of worldShips) {
         const ship = assertPresent(entity.get(PositionTrait));
         // This is probably generalizable into a trait regarding collisions?
-        if (
-          ship.posX > this.state.playerShipPos.posX &&
-          ship.posY > this.state.playerShipPos.posY
-        ) {
-          // too far!
-          next(this.state);
+        let hasCalledNext = false;
+        for (const entity of this.state.world.query(PositionTrait, IsPlayer)) {
+          const playerShip = assertPresent(entity.get(PositionTrait));
+          if (ship.posX > playerShip.posX && ship.posY > playerShip.posY) {
+            // a player has touched an enemy!
+            hasCalledNext = true;
+            next(this.state);
+            break;
+          }
+        }
+        if (hasCalledNext) {
           break;
         }
       }
@@ -132,24 +147,10 @@ export function gameSimulationFactory(
   return state;
 }
 
-export function drawGame(p: p5, state: GameSimulationState) {
-  // draw player ship
-  p.push();
-  p.fill("red");
-  p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
-  p.pop();
-}
-
 export function drawGameByKootaWorldStrategy(
   p: p5,
   state: GameSimulationState
 ) {
-  // draw player ship
-  p.push();
-  p.fill("red");
-  p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
-  p.pop();
-
   drawSquaresByWorldStrategy(p, state.world);
 }
 

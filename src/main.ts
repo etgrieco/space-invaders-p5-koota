@@ -1,10 +1,6 @@
 import p5 from "p5";
 import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
-import {
-  drawGame,
-  drawGameByKootaWorldStrategy,
-  gameSimulationFactory,
-} from "./scenes/gameSimulation";
+import { gameSimulationFactory } from "./scenes/gameSimulation";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");
@@ -125,7 +121,6 @@ function myP5(p: p5) {
         drawIntro(p, gameSceneState.simulation.state);
       } else if (gameSceneState.sceneId === "SPACE_INVADERS_GAME") {
         gameSceneState.simulation.tick();
-        drawGame(p, gameSceneState.simulation.state);
       } else if (gameSceneState.sceneId === "END") {
         // just draw
         p.push();
