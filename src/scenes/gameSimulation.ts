@@ -5,10 +5,13 @@ import { createWorld, Entity, relation, trait, World } from "koota";
 type Position = { posX: number; posY: number };
 type DrawableSquare = { squareSize: number; fillColor: string };
 type Velocity = { xVel: number; yVel: number };
+type TwoWayControl = { dir: "e" | "w" | "none" };
+type ThrustVel = { absThrust: number };
 
 type GameSimulationState = {
   world: World;
   enemySwarmAnchorEntity: Entity;
+  playerEntity: Entity;
 };
 
 type FollowerOfRelativePosStore = {
@@ -25,6 +28,12 @@ const VelocityTrait = trait<Velocity>({ xVel: 0, yVel: 0 });
 const DrawableSquareTrait = trait<DrawableSquare>({
   fillColor: "green",
   squareSize: 0,
+});
+const TwoWayControlTrait = trait<TwoWayControl>({
+  dir: "none",
+});
+const ThrustVelTrait = trait<ThrustVel>({
+  absThrust: 0,
 });
 
 const IsEnemy = trait();
@@ -77,18 +86,23 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
     }
   }
 
-  world.spawn(
+  // spawn player
+  const playerEntity = world.spawn(
     PositionTrait({
       posX: 0,
       posY: p.height / 2 - 100,
     }),
     IsPlayer,
-    DrawableSquareTrait({ fillColor: "red", squareSize: 50 })
+    DrawableSquareTrait({ fillColor: "red", squareSize: 50 }),
+    TwoWayControlTrait,
+    VelocityTrait,
+    ThrustVelTrait({ absThrust: 1 })
   );
 
   return {
     world,
     enemySwarmAnchorEntity,
+    playerEntity,
   };
 }
 
@@ -97,8 +111,46 @@ export function gameSimulationFactory(
   // A callback to trigger when simulation is ready to go to the next scene
   next: (state: GameSimulationState) => void
 ): TStateTickMachine<GameSimulationState> {
+  // SETUP: keyboard listener for controls
+
+  const gameSimState = createInitialGameSimulationState(p);
+
+  const unmountSpecialKeyHandlers = new AbortController();
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      switch (e.code) {
+        case "ArrowLeft":
+          gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "w" });
+          break;
+        case "ArrowRight":
+          gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "e" });
+          break;
+        default:
+          break;
+      }
+    },
+    {
+      signal: unmountSpecialKeyHandlers.signal,
+    }
+  );
+
+  document.addEventListener("keyup", function (e) {
+    switch (e.code) {
+      case "ArrowLeft":
+      case "ArrowRight":
+        gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "none" });
+        break;
+      default:
+        break;
+    }
+  });
+  function cleanup() {
+    unmountSpecialKeyHandlers.abort();
+  }
+
   const state = {
-    state: createInitialGameSimulationState(p),
+    state: gameSimState,
     tick() {
       const enemySwarmAnchorPos = assertPresent(
         this.state.enemySwarmAnchorEntity.get(PositionTrait)
@@ -163,6 +215,22 @@ export function gameSimulationFactory(
           });
         });
 
+      // Handle TwoWayControl behavior on velocity
+      this.state.world
+        .query(TwoWayControlTrait, ThrustVelTrait, VelocityTrait, IsPlayer)
+        .select(TwoWayControlTrait, ThrustVelTrait, VelocityTrait)
+        .updateEach(([con, thrust, vel]) => {
+          if (con.dir === "e") {
+            vel.xVel = thrust.absThrust;
+          } else if (con.dir === "w") {
+            vel.xVel = -1 * thrust.absThrust;
+          } else if (con.dir === "none") {
+            vel.xVel = 0;
+          } else {
+            throw new Error(`Unhandled controller condition ${con.dir}`);
+          }
+        });
+
       // naive, but functional - check end condition -- collision on y-axis with playership
       const worldShips = this.state.world.query(PositionTrait, IsEnemy);
       for (const entity of worldShips) {
@@ -174,6 +242,7 @@ export function gameSimulationFactory(
           if (ship.posX > playerShip.posX && ship.posY > playerShip.posY) {
             // a player has touched an enemy!
             hasCalledNext = true;
+            cleanup();
             next(this.state);
             break;
           }
