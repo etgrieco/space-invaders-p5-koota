@@ -16,7 +16,11 @@ type GameSimulationState = {
   enemySwarmAnchor: Position & Velocity;
 };
 
-const PositionTrait = trait(() => ({ posX: 0, posY: 0 }));
+const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
+const FollowsTrait = trait<Follows>({
+  relativePos: { posX: 0, posY: 0 },
+  target: { posX: 0, posY: 0 },
+});
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
   const world = createWorld();
@@ -39,10 +43,19 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
         posY: row * 50,
       };
 
+      // spawn enemy ships
       world.spawn(
         PositionTrait({
           posX: enemySwarmAnchor.posX + col * 50,
           posY: enemySwarmAnchor.posY + row * 50,
+        }),
+        FollowsTrait({
+          // TODO: uses a target to the raw entity data; can maybe use relations here instead
+          target: enemySwarmAnchor,
+          relativePos: {
+            posX: col * 50,
+            posY: row * 50,
+          },
         })
       );
 
@@ -71,6 +84,7 @@ export function gameSimulationFactory(
   // A callback to trigger when simulation is ready to go to the next scene
   next: (state: GameSimulationState) => void
 ): TStateTickMachine<GameSimulationState> {
+  // DEBUG SIDE-EFFECT
   const state = {
     state: createInitialGameSimulationState(p),
     tick() {
@@ -96,15 +110,13 @@ export function gameSimulationFactory(
         e.posX = e.target.posX + e.relativePos.posX;
         e.posY = e.target.posY + e.relativePos.posY;
       });
-      this.state.world.query(PositionTrait).forEach((e, idx) => {
-        // TODO: move this into a Follow trait
-        const target = this.state.enemyShips[idx]!.target;
-        const relativePos = this.state.enemyShips[idx]!.relativePos;
-        e.set(PositionTrait, {
-          posX: target.posX + relativePos.posX,
-          posY: target.posY + relativePos.posY,
+
+      this.state.world
+        .query(PositionTrait, FollowsTrait)
+        .updateEach(([position, follows]) => {
+          position.posX = follows.target.posX + follows.relativePos.posX;
+          position.posY = follows.target.posY + follows.relativePos.posY;
         });
-      });
 
       // check end condition -- collision on y-axis with playership
       for (const ship of this.state.enemyShips) {
@@ -152,7 +164,8 @@ export function drawGameByKootaWorldStrategy(
   p.fill("red");
   p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
   p.pop();
-  // draw enemies
+  // draw enemies - NOTE: right now, it's simply assuming this is enemy ships only
+  // I gotta figure out best strategies to embed the draw instructions into the thing itself? or square metadata?
   state.world.query(PositionTrait).forEach((e) => {
     const positionValues = assertPresent(e.get(PositionTrait));
     p.push();
