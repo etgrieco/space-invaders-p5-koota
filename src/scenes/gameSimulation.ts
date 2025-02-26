@@ -1,17 +1,17 @@
 import type p5 from "p5";
 import { TStateTickMachine } from "./types";
 
-type PositionEntity = { posX: number; posY: number };
-type MovableEntity = { xVel: number; yVel: number };
-type FollowsEntity = PositionEntity & {
-  target: PositionEntity;
+type Position = { posX: number; posY: number };
+type Velocity = { xVel: number; yVel: number };
+type Follows = {
+  target: Position;
   relativePos: { posX: number; posY: number };
 };
 
 type GameSimulationState = {
-  playerShipPos: PositionEntity;
-  enemyShips: Array<PositionEntity & FollowsEntity>;
-  enemySwarmAnchor: PositionEntity & MovableEntity;
+  playerShipPos: Position;
+  enemyShips: Array<Position & Follows>;
+  enemySwarmAnchor: Position & Velocity;
 };
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
