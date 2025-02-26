@@ -12,8 +12,6 @@ type Follows = {
 
 type GameSimulationState = {
   world: World;
-  /** @deprecated Use koota world player */
-  playerShipPos: Position;
   enemySwarmAnchor: Position & Velocity;
 };
 
@@ -79,10 +77,6 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
 
   return {
     world,
-    playerShipPos: {
-      posX: 0,
-      posY: p.height / 2 - 100,
-    },
     enemySwarmAnchor: enemySwarmAnchor,
   };
 }
