@@ -8,6 +8,7 @@ type Velocity = { xVel: number; yVel: number };
 type TwoWayControl = { dir: "e" | "w" | "none" };
 type ThrustVel = { absThrust: number };
 type RelativePos = { posX: number; posY: number };
+type DestroyedStatus = { isDestroyed: boolean };
 
 type GameSimulationState = {
   world: World;
@@ -32,14 +33,18 @@ const ThrustVelTrait = trait<ThrustVel>({
   absThrust: 0,
 });
 const RelativePosTrait = trait<RelativePos>({ posX: 0, posY: 0 });
+const DestroyedStatusTrait = trait<DestroyedStatus>({
+  isDestroyed: false,
+});
 
 const IsEnemy = trait();
 const IsPlayer = trait();
+const isProjectile = trait();
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
   const world = createWorld();
 
-  const SHIP_START_VEL = 0.05;
+  const SHIP_START_VEL = 0.01;
 
   // create enemy "anchor", which the other ships all follow
   const enemySwarmAnchorEntity = world.spawn(
@@ -76,7 +81,8 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
         RelativePosTrait({
           posX: col * 50,
           posY: row * 50,
-        })
+        }),
+        DestroyedStatusTrait({ isDestroyed: false })
       );
     }
   }
@@ -120,6 +126,25 @@ export function gameSimulationFactory(
           break;
         case "ArrowRight":
           gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "e" });
+          break;
+        case "Space":
+          {
+            const playerPosition = assertPresent(
+              gameSimState.playerEntity.get(PositionTrait)
+            );
+            // projectile definition...
+            gameSimState.world.spawn(
+              isProjectile,
+              VelocityTrait({ yVel: -1 }),
+              PositionTrait({
+                posX: playerPosition.posX,
+                posY: playerPosition.posY,
+              }),
+              DrawableSquareTrait({ fillColor: "orange", squareSize: 5 }),
+              DestroyedStatusTrait({ isDestroyed: false })
+            );
+          }
+          // spawn a projectile at the player
           break;
         default:
           break;
@@ -180,6 +205,7 @@ export function gameSimulationFactory(
         .query(PositionTrait, VelocityTrait)
         .updateEach(([pos, vel]) => {
           pos.posX += vel.xVel * p.deltaTime;
+          pos.posY += vel.yVel * p.deltaTime;
         });
 
       // Handle following transform behavior
@@ -231,6 +257,55 @@ export function gameSimulationFactory(
         }
       }
 
+      // handle collisions between projectiles and vulnerable entities...
+      this.state.world
+        .query(IsEnemy, PositionTrait, DestroyedStatusTrait)
+        .forEach((enemyEntity) => {
+          const enemyPos = assertPresent(enemyEntity.get(PositionTrait));
+          // scan all projectiles...
+          this.state.world
+            .query(isProjectile, PositionTrait, DestroyedStatusTrait)
+            .forEach((projEntity) => {
+              const isProjectileDestroyed =
+                !!projEntity.get(DestroyedStatusTrait)?.isDestroyed;
+
+              // NOTE: do we have to check if enemy is destroyed? not right now that there is no way a simultaneous thread can destroy the same enemy, right?
+              if (isProjectileDestroyed) return; // no-op if already destroyed
+
+              const projEntityPos = assertPresent(
+                projEntity.get(PositionTrait)
+              );
+
+              // hard-code bounding box for now on all enemies
+              const distX = enemyPos.posX - projEntityPos.posX;
+              const distY = enemyPos.posY - projEntityPos.posY;
+
+              const isInX = distX <= 10 && distX > 0;
+              const isInY = distY >= -10 && distY < 0;
+
+              if (isInX && isInY) {
+                // destroy! (enemy + projectile)
+                projEntity.set(DestroyedStatusTrait, { isDestroyed: true });
+                enemyEntity.set(DestroyedStatusTrait, { isDestroyed: true });
+              }
+            });
+        });
+
+      // cleanup! cull items outside of canvas every 10 frames
+      if (p.frameCount % 10 === 0) {
+        this.state.world.query(PositionTrait).forEach((e) => {
+          const pos = assertPresent(e.get(PositionTrait));
+          if (
+            pos.posX < p.width / -2 ||
+            pos.posX > p.width / 2 ||
+            pos.posY < p.height / -2 ||
+            pos.posY > p.height / 2
+          ) {
+            e.destroy();
+          }
+        });
+      }
+
       // we draw here, so that we have world in scope
       drawGameByKootaWorldStrategy(p, this.state);
     },
@@ -248,6 +323,10 @@ export function drawGameByKootaWorldStrategy(
 
 function drawSquaresByWorldStrategy(p: p5, world: World) {
   world.query(PositionTrait, DrawableSquareTrait).forEach((e) => {
+    // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
+    const isDestroyed = !!e.get(DestroyedStatusTrait)?.isDestroyed;
+    if (isDestroyed) return;
+
     const positionValues = assertPresent(e.get(PositionTrait));
     const squareValues = assertPresent(e.get(DrawableSquareTrait));
     p.push();
