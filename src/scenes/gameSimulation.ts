@@ -96,6 +96,15 @@ export function gameSimulationFactory(
         e.posX = e.target.posX + e.relativePos.posX;
         e.posY = e.target.posY + e.relativePos.posY;
       });
+      this.state.world.query(PositionTrait).forEach((e, idx) => {
+        // TODO: move this into a Follow trait
+        const target = this.state.enemyShips[idx]!.target;
+        const relativePos = this.state.enemyShips[idx]!.relativePos;
+        e.set(PositionTrait, {
+          posX: target.posX + relativePos.posX,
+          posY: target.posY + relativePos.posY,
+        });
+      });
 
       // check end condition -- collision on y-axis with playership
       for (const ship of this.state.enemyShips) {
@@ -126,12 +135,12 @@ export function drawGame(p: p5, state: GameSimulationState) {
   p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
   p.pop();
   // draw enemies
-  state.enemyShips.forEach((e) => {
-    p.push();
-    p.fill("red");
-    p.square(e.posX, e.posY, 25);
-    p.pop();
-  });
+  // state.enemyShips.forEach((e) => {
+  //   p.push();
+  //   p.fill("red");
+  //   p.square(e.posX, e.posY, 25);
+  //   p.pop();
+  // });
 }
 
 export function drawGameByKootaWorldStrategy(
