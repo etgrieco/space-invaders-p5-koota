@@ -1,6 +1,6 @@
 import type p5 from "p5";
 import { TStateTickMachine } from "./types";
-import { createWorld, trait, World } from "koota";
+import { createWorld, relation, trait, World } from "koota";
 
 type Position = { posX: number; posY: number };
 type DrawableSquare = { squareSize: number; fillColor: string };
@@ -15,15 +15,22 @@ type GameSimulationState = {
   enemySwarmAnchor: Position & Velocity;
 };
 
-const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
-const FollowsTrait = trait<Follows>({
-  relativePos: { posX: 0, posY: 0 },
-  target: { posX: 0, posY: 0 },
+const FollowerOfRelation = relation({
+  exclusive: true,
+  store: { relativePos: { posX: 0, posY: 0 } },
 });
+
+const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
+const VelocityTrait = trait<Velocity>({ xVel: 0, yVel: 0 });
+// const FollowsTrait = trait<Follows>({
+//   relativePos: { posX: 0, posY: 0 },
+//   target: { posX: 0, posY: 0 },
+// });
 const DrawableSquareTrait = trait<DrawableSquare>({
   fillColor: "green",
   squareSize: 0,
 });
+
 /** Tags an enemy, for collision/game over condition purposes */
 const IsEnemy = trait();
 const IsPlayer = trait();
@@ -33,29 +40,30 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
 
   const SHIP_START_VEL = 0.05;
 
-  const enemySwarmAnchor = {
-    posX: p.width / -2 + 100,
-    posY: p.height / -2 + 100,
-    xVel: SHIP_START_VEL,
-    yVel: 0,
-  };
+  // create enemy "anchor", which the other ships all follow
+  const enemySwarmAnchorEntity = world.spawn(
+    PositionTrait({
+      posX: p.width / -2 + 100,
+      posY: p.height / -2 + 100,
+    }),
+    VelocityTrait({
+      xVel: SHIP_START_VEL,
+      yVel: 0,
+    })
+  );
+
+  const enemySwarmAnchorPosition = assertPresent(
+    enemySwarmAnchorEntity.get(PositionTrait)
+  );
 
   // 5 x 10 grid
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
       // spawn enemy ships
-      world.spawn(
+      const enemyShipEntity = world.spawn(
         PositionTrait({
-          posX: enemySwarmAnchor.posX + col * 50,
-          posY: enemySwarmAnchor.posY + row * 50,
-        }),
-        FollowsTrait({
-          // TODO: uses a target to the raw entity data; can maybe use relations here instead
-          target: enemySwarmAnchor,
-          relativePos: {
-            posX: col * 50,
-            posY: row * 50,
-          },
+          posX: enemySwarmAnchorPosition.posX + col * 50,
+          posY: enemySwarmAnchorPosition.posY + row * 50,
         }),
         DrawableSquareTrait({
           fillColor: "green",
@@ -63,6 +71,8 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
         }),
         IsEnemy
       );
+      // Assign to the swarm
+      enemyShipEntity.add(FollowerOfRelation(enemySwarmAnchorEntity));
     }
   }
 
@@ -77,7 +87,12 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
 
   return {
     world,
-    enemySwarmAnchor: enemySwarmAnchor,
+    enemySwarmAnchor: {
+      posX: p.width / -2 + 100,
+      posY: p.height / -2 + 100,
+      xVel: SHIP_START_VEL,
+      yVel: 0,
+    },
   };
 }
 
@@ -102,15 +117,34 @@ export function gameSimulationFactory(
         this.state.enemySwarmAnchor.posX = 50 - p.width / 2;
       }
 
-      // MOVE based on inherent velocity (generalizable)
-      this.state.enemySwarmAnchor.posX +=
-        this.state.enemySwarmAnchor.xVel * p.deltaTime;
-
+      // Handle movable entities
       this.state.world
-        .query(PositionTrait, FollowsTrait)
-        .updateEach(([position, follows]) => {
-          position.posX = follows.target.posX + follows.relativePos.posX;
-          position.posY = follows.target.posY + follows.relativePos.posY;
+        .query(PositionTrait, VelocityTrait)
+        .updateEach(([pos, vel]) => {
+          pos.posX += vel.xVel * p.deltaTime;
+        });
+
+      // Handle following transform behavior
+      this.state.world
+        .query(PositionTrait, FollowerOfRelation("*"))
+        .forEach((e) => {
+          const entityFollowingTarget = assertPresent(
+            e.targetFor(FollowerOfRelation)
+          );
+
+          entityFollowingTarget.get(FollowerOfRelation(entityFollowingTarget));
+
+          const entityFollowingTargetPosition = assertPresent(
+            entityFollowingTarget.get(PositionTrait)
+          );
+
+          e.set(PositionTrait, {
+            posX: entityFollowingTargetPosition.posX + Math.random() * 100, // TODO: proving this works; now i gotta figure out how to grab relative pos from the relation store?
+            posY: entityFollowingTargetPosition.posY + Math.random() * 100,
+          });
+
+          // position.posX = follows.target.posX + follows.relativePos.posX;
+          // position.posY = follows.target.posY + follows.relativePos.posY;
         });
 
       // naive, but functional - check end condition -- collision on y-axis with playership
