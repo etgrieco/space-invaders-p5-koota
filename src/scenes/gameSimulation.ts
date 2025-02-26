@@ -1,6 +1,6 @@
 import type p5 from "p5";
 import { TStateTickMachine } from "./types";
-import { createWorld, relation, trait, World } from "koota";
+import { createWorld, Entity, relation, trait, World } from "koota";
 
 type Position = { posX: number; posY: number };
 type DrawableSquare = { squareSize: number; fillColor: string };
@@ -8,7 +8,7 @@ type Velocity = { xVel: number; yVel: number };
 
 type GameSimulationState = {
   world: World;
-  enemySwarmAnchor: Position & Velocity;
+  enemySwarmAnchorEntity: Entity;
 };
 
 type FollowerOfRelativePosStore = {
@@ -69,10 +69,10 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
           fillColor: "green",
           squareSize: 25,
         }),
-        IsEnemy
+        IsEnemy,
+        FollowerOfRelation(enemySwarmAnchorEntity)
       );
-      // Assign to the swarm
-      enemyShipEntity.add(FollowerOfRelation(enemySwarmAnchorEntity));
+      // Assign to the swarm, and set relative position metadata on the relationship
       enemyShipEntity.set(FollowerOfRelation(enemySwarmAnchorEntity), {
         relativePos: {
           posX: col * 50,
@@ -93,12 +93,7 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
 
   return {
     world,
-    enemySwarmAnchor: {
-      posX: p.width / -2 + 100,
-      posY: p.height / -2 + 100,
-      xVel: SHIP_START_VEL,
-      yVel: 0,
-    },
+    enemySwarmAnchorEntity,
   };
 }
 
@@ -110,17 +105,32 @@ export function gameSimulationFactory(
   const state = {
     state: createInitialGameSimulationState(p),
     tick() {
-      // MOVE at boundary
-      if (this.state.enemySwarmAnchor.posX > 200 - p.width / 2) {
-        this.state.enemySwarmAnchor.xVel *= -1;
-        this.state.enemySwarmAnchor.posY += 50;
-        // set to boundary again, so that next tick is always away
-        this.state.enemySwarmAnchor.posX = 200 - p.width / 2;
-      } else if (this.state.enemySwarmAnchor.posX < 50 - p.width / 2) {
-        this.state.enemySwarmAnchor.xVel *= -1;
-        this.state.enemySwarmAnchor.posY += 50;
-        // set to boundary again, so that next tick is always away
-        this.state.enemySwarmAnchor.posX = 50 - p.width / 2;
+      const enemySwarmAnchorPos = assertPresent(
+        this.state.enemySwarmAnchorEntity.get(PositionTrait)
+      );
+      const enemySwarmAnchorVel = assertPresent(
+        this.state.enemySwarmAnchorEntity.get(VelocityTrait)
+      );
+
+      // This is a very adhoc control of the enemy swarm
+      if (enemySwarmAnchorPos.posX > 200 - p.width / 2) {
+        this.state.enemySwarmAnchorEntity.set(VelocityTrait, {
+          xVel: enemySwarmAnchorVel.xVel * -1,
+        });
+        this.state.enemySwarmAnchorEntity.set(PositionTrait, {
+          posY: enemySwarmAnchorPos.posY + 50,
+          // set to boundary again, so that next tick is always away
+          posX: 200 - p.width / 2,
+        });
+      } else if (enemySwarmAnchorPos.posX < 50 - p.width / 2) {
+        this.state.enemySwarmAnchorEntity.set(VelocityTrait, {
+          xVel: enemySwarmAnchorVel.xVel * -1,
+        });
+        this.state.enemySwarmAnchorEntity.set(PositionTrait, {
+          posY: enemySwarmAnchorPos.posY + 50,
+          // set to boundary again, so that next tick is always away
+          posX: 50 - p.width / 2,
+        });
       }
 
       // Handle movable entities
