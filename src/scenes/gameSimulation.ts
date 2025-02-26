@@ -3,6 +3,7 @@ import { TStateTickMachine } from "./types";
 import { createWorld, trait, World } from "koota";
 
 type Position = { posX: number; posY: number };
+type DrawableSquare = { squareSize: number; fillColor: string };
 type Velocity = { xVel: number; yVel: number };
 type Follows = {
   target: Position;
@@ -12,7 +13,6 @@ type Follows = {
 type GameSimulationState = {
   world: World;
   playerShipPos: Position;
-  enemyShips: Array<Position & Follows>;
   enemySwarmAnchor: Position & Velocity;
 };
 
@@ -21,6 +21,12 @@ const FollowsTrait = trait<Follows>({
   relativePos: { posX: 0, posY: 0 },
   target: { posX: 0, posY: 0 },
 });
+const DrawableSquareTrait = trait<DrawableSquare>({
+  fillColor: "green",
+  squareSize: 0,
+});
+/** Tags an enemy, for collision/game over condition purposes */
+const IsEnemy = trait();
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
   const world = createWorld();
@@ -34,15 +40,9 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
     yVel: 0,
   };
 
-  let enemyShips: GameSimulationState["enemyShips"] = [];
   // 5 x 10 grid
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
-      const relativePos = {
-        posX: col * 50,
-        posY: row * 50,
-      };
-
       // spawn enemy ships
       world.spawn(
         PositionTrait({
@@ -56,15 +56,13 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
             posX: col * 50,
             posY: row * 50,
           },
-        })
+        }),
+        DrawableSquareTrait({
+          fillColor: "green",
+          squareSize: 25,
+        }),
+        IsEnemy
       );
-
-      enemyShips.push({
-        target: enemySwarmAnchor,
-        relativePos: relativePos,
-        posX: enemySwarmAnchor.posX + col * 50,
-        posY: enemySwarmAnchor.posY + row * 50,
-      });
     }
   }
 
@@ -74,7 +72,6 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
       posX: 0,
       posY: p.height / 2 - 100,
     },
-    enemyShips: enemyShips,
     enemySwarmAnchor: enemySwarmAnchor,
   };
 }
@@ -105,12 +102,6 @@ export function gameSimulationFactory(
       this.state.enemySwarmAnchor.posX +=
         this.state.enemySwarmAnchor.xVel * p.deltaTime;
 
-      // FOLLOW the anchor
-      this.state.enemyShips.forEach((e) => {
-        e.posX = e.target.posX + e.relativePos.posX;
-        e.posY = e.target.posY + e.relativePos.posY;
-      });
-
       this.state.world
         .query(PositionTrait, FollowsTrait)
         .updateEach(([position, follows]) => {
@@ -118,15 +109,16 @@ export function gameSimulationFactory(
           position.posY = follows.target.posY + follows.relativePos.posY;
         });
 
-      // check end condition -- collision on y-axis with playership
-      for (const ship of this.state.enemyShips) {
-        // TODO: collision model
+      // naive, but functional - check end condition -- collision on y-axis with playership
+      const worldShips = this.state.world.query(PositionTrait, IsEnemy);
+      for (const entity of worldShips) {
+        const ship = assertPresent(entity.get(PositionTrait));
+        // This is probably generalizable into a trait regarding collisions?
         if (
           ship.posX > this.state.playerShipPos.posX &&
           ship.posY > this.state.playerShipPos.posY
         ) {
           // too far!
-          console.log("call next");
           next(this.state);
           break;
         }
@@ -146,13 +138,6 @@ export function drawGame(p: p5, state: GameSimulationState) {
   p.fill("red");
   p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
   p.pop();
-  // draw enemies
-  // state.enemyShips.forEach((e) => {
-  //   p.push();
-  //   p.fill("red");
-  //   p.square(e.posX, e.posY, 25);
-  //   p.pop();
-  // });
 }
 
 export function drawGameByKootaWorldStrategy(
@@ -164,13 +149,17 @@ export function drawGameByKootaWorldStrategy(
   p.fill("red");
   p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
   p.pop();
-  // draw enemies - NOTE: right now, it's simply assuming this is enemy ships only
-  // I gotta figure out best strategies to embed the draw instructions into the thing itself? or square metadata?
-  state.world.query(PositionTrait).forEach((e) => {
+
+  drawSquaresByWorldStrategy(p, state.world);
+}
+
+function drawSquaresByWorldStrategy(p: p5, world: World) {
+  world.query(PositionTrait, DrawableSquareTrait).forEach((e) => {
     const positionValues = assertPresent(e.get(PositionTrait));
+    const squareValues = assertPresent(e.get(DrawableSquareTrait));
     p.push();
-    p.fill("green");
-    p.square(positionValues.posX, positionValues.posY, 25);
+    p.fill(squareValues.fillColor);
+    p.square(positionValues.posX, positionValues.posY, squareValues.squareSize);
     p.pop();
   });
 }
