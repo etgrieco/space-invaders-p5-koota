@@ -5,17 +5,17 @@ import { createWorld, relation, trait, World } from "koota";
 type Position = { posX: number; posY: number };
 type DrawableSquare = { squareSize: number; fillColor: string };
 type Velocity = { xVel: number; yVel: number };
-type Follows = {
-  target: Position;
-  relativePos: { posX: number; posY: number };
-};
 
 type GameSimulationState = {
   world: World;
   enemySwarmAnchor: Position & Velocity;
 };
 
-const FollowerOfRelation = relation({
+type FollowerOfRelativePosStore = {
+  relativePos: { posX: number; posY: number };
+};
+
+const FollowerOfRelation = relation<FollowerOfRelativePosStore>({
   exclusive: true,
   store: { relativePos: { posX: 0, posY: 0 } },
 });
@@ -73,6 +73,12 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
       );
       // Assign to the swarm
       enemyShipEntity.add(FollowerOfRelation(enemySwarmAnchorEntity));
+      enemyShipEntity.set(FollowerOfRelation(enemySwarmAnchorEntity), {
+        relativePos: {
+          posX: col * 50,
+          posY: row * 50,
+        },
+      } satisfies FollowerOfRelativePosStore);
     }
   }
 
@@ -138,13 +144,18 @@ export function gameSimulationFactory(
             entityFollowingTarget.get(PositionTrait)
           );
 
-          e.set(PositionTrait, {
-            posX: entityFollowingTargetPosition.posX + Math.random() * 100, // TODO: proving this works; now i gotta figure out how to grab relative pos from the relation store?
-            posY: entityFollowingTargetPosition.posY + Math.random() * 100,
-          });
+          const followerOfData = e.get(
+            FollowerOfRelation(entityFollowingTarget)
+          ) as FollowerOfRelativePosStore;
 
-          // position.posX = follows.target.posX + follows.relativePos.posX;
-          // position.posY = follows.target.posY + follows.relativePos.posY;
+          e.set(PositionTrait, {
+            posX:
+              entityFollowingTargetPosition.posX +
+              followerOfData.relativePos.posX,
+            posY:
+              entityFollowingTargetPosition.posY +
+              followerOfData.relativePos.posY,
+          });
         });
 
       // naive, but functional - check end condition -- collision on y-axis with playership
