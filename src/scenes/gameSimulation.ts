@@ -1,5 +1,6 @@
 import type p5 from "p5";
 import { TStateTickMachine } from "./types";
+import { createWorld, trait, World } from "koota";
 
 type Position = { posX: number; posY: number };
 type Velocity = { xVel: number; yVel: number };
@@ -9,12 +10,17 @@ type Follows = {
 };
 
 type GameSimulationState = {
+  world: World;
   playerShipPos: Position;
   enemyShips: Array<Position & Follows>;
   enemySwarmAnchor: Position & Velocity;
 };
 
+const PositionTrait = trait(() => ({ posX: 0, posY: 0 }));
+
 function createInitialGameSimulationState(p: p5): GameSimulationState {
+  const world = createWorld();
+
   const SHIP_START_VEL = 0.05;
 
   const enemySwarmAnchor = {
@@ -32,6 +38,14 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
         posX: col * 50,
         posY: row * 50,
       };
+
+      world.spawn(
+        PositionTrait({
+          posX: enemySwarmAnchor.posX + col * 50,
+          posY: enemySwarmAnchor.posY + row * 50,
+        })
+      );
+
       enemyShips.push({
         target: enemySwarmAnchor,
         relativePos: relativePos,
@@ -42,6 +56,7 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
   }
 
   return {
+    world,
     playerShipPos: {
       posX: 0,
       posY: p.height / 2 - 100,
@@ -95,6 +110,9 @@ export function gameSimulationFactory(
           break;
         }
       }
+
+      // we draw here, so that we have world in scope
+      drawGameByKootaWorldStrategy(p, this.state);
     },
   };
   state.tick = state.tick.bind(state);
@@ -114,4 +132,30 @@ export function drawGame(p: p5, state: GameSimulationState) {
     p.square(e.posX, e.posY, 25);
     p.pop();
   });
+}
+
+export function drawGameByKootaWorldStrategy(
+  p: p5,
+  state: GameSimulationState
+) {
+  // draw player ship
+  p.push();
+  p.fill("red");
+  p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
+  p.pop();
+  // draw enemies
+  state.world.query(PositionTrait).forEach((e) => {
+    const positionValues = assertPresent(e.get(PositionTrait));
+    p.push();
+    p.fill("green");
+    p.square(positionValues.posX, positionValues.posY, 25);
+    p.pop();
+  });
+}
+
+function assertPresent<T>(item: T | null | undefined): T {
+  if (item == null) {
+    throw new Error("Array contains null or undefined values");
+  }
+  return item;
 }

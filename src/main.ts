@@ -1,6 +1,10 @@
 import p5 from "p5";
 import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
-import { drawGame, gameSimulationFactory } from "./scenes/gameSimulation";
+import {
+  drawGame,
+  drawGameByKootaWorldStrategy,
+  gameSimulationFactory,
+} from "./scenes/gameSimulation";
 
 // Entrypoint code
 const rootEl = document.getElementById("p5-root");

@@ -20,6 +20,7 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
+    "koota": "^0.1.12",
     "p5": "^1",
     "tailwindcss": "^4"
   }
