@@ -45,6 +45,9 @@ function myP5(p: p5) {
     sceneId: "START_NULL",
   };
 
+  // This is simply used so we can prepare a callback for the next tick;
+  // Right now it's only used because I am ensuring a draw finishes before transitions
+  // to next states occur.
   const nextTickQueue: Array<() => void> = [];
   const queueNextTick = (cb: () => void) => () => {
     nextTickQueue.push(cb);
@@ -77,8 +80,30 @@ function myP5(p: p5) {
       p.textFont(font);
       p.textSize(36);
       p.textAlign(p.LEFT, p.BOTTOM);
+
+      // create "state machine" for game scenes
+      gameSceneState = {
+        sceneId: "CRAWL_INTRO",
+        simulation: introSimulationFactory(
+          p,
+          queueNextTick(() => {
+            gameSceneState = {
+              sceneId: "SPACE_INVADERS_GAME",
+              simulation: gameSimulationFactory(
+                p,
+                queueNextTick(() => {
+                  gameSceneState = {
+                    sceneId: "END",
+                  };
+                })
+              ),
+            };
+          })
+        ),
+      };
     },
     draw() {
+      // Run and clear the "next tick queue"
       nextTickQueue.forEach((fn) => {
         return fn();
       });
@@ -91,28 +116,7 @@ function myP5(p: p5) {
       // clear screen
       p.background("black");
 
-      if (gameSceneState.sceneId === "START_NULL") {
-        // set up basically one big machine to kick off
-        gameSceneState = {
-          sceneId: "CRAWL_INTRO",
-          simulation: introSimulationFactory(
-            p,
-            queueNextTick(() => {
-              gameSceneState = {
-                sceneId: "SPACE_INVADERS_GAME",
-                simulation: gameSimulationFactory(
-                  p,
-                  queueNextTick(() => {
-                    gameSceneState = {
-                      sceneId: "END",
-                    };
-                  })
-                ),
-              };
-            })
-          ),
-        };
-      } else if (gameSceneState.sceneId === "CRAWL_INTRO") {
+      if (gameSceneState.sceneId === "CRAWL_INTRO") {
         gameSceneState.simulation.tick();
         drawIntro(p, gameSceneState.simulation.state);
       } else if (gameSceneState.sceneId === "SPACE_INVADERS_GAME") {
