@@ -22,16 +22,11 @@ const FollowerOfRelation = relation<FollowerOfRelativePosStore>({
 
 const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
 const VelocityTrait = trait<Velocity>({ xVel: 0, yVel: 0 });
-// const FollowsTrait = trait<Follows>({
-//   relativePos: { posX: 0, posY: 0 },
-//   target: { posX: 0, posY: 0 },
-// });
 const DrawableSquareTrait = trait<DrawableSquare>({
   fillColor: "green",
   squareSize: 0,
 });
 
-/** Tags an enemy, for collision/game over condition purposes */
 const IsEnemy = trait();
 const IsPlayer = trait();
 
