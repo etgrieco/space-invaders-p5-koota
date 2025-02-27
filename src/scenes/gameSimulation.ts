@@ -19,7 +19,11 @@ import {
   relativePositionFollowersSystem,
   sideEffectOnPlayerLoseConditionSystem,
 } from "./gameSimulation/systems";
-import { spawnEnemyDrone, spawnPlayer } from "./gameSimulation/entityFactories";
+import {
+  spawnEnemyDrone,
+  spawnEnemySwarmAnchor,
+  spawnPlayer,
+} from "./gameSimulation/entityFactories";
 import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
 
 type GameSimulationState = {
@@ -31,19 +35,13 @@ type GameSimulationState = {
 function createInitialGameSimulationState(p: p5): GameSimulationState {
   const world = createWorld();
 
-  const SHIP_START_VEL = 0.01;
-
   // create enemy "anchor", which the other ships all follow
-  const enemySwarmAnchorEntity = world.spawn(
-    Position({
-      posX: p.width / -2 + 100,
-      posY: p.height / -2 + 100,
-    }),
-    Velocity({
-      xVel: SHIP_START_VEL,
-      yVel: 0,
-    })
-  );
+  const enemySwarmAnchorEntity = spawnEnemySwarmAnchor(world, {
+    absolutePosition: {
+      x: p.width / -2 + 100,
+      y: p.height / -2 + 100,
+    },
+  });
 
   const enemySwarmAnchorPosition = enemySwarmAnchorEntity.get(Position)!;
   // 5 x 10 grid of enemy ships
@@ -84,9 +82,7 @@ export function gameSimulationFactory(
   next: (state: GameSimulationState) => void
 ): TStateTickMachine<GameSimulationState> {
   // SETUP: keyboard listener for controls
-
   const gameSimState = createInitialGameSimulationState(p);
-
   const unmountSpecialKeyHandlers = new AbortController();
   document.addEventListener(
     "keydown",
@@ -167,17 +163,17 @@ export function gameSimulationFactory(
       });
       // handle collisions between projectiles and vulnerable entities...
       enemyProjectileInteractionSystem(gameState.world);
-      // cleanup!
-      if (p.frameCount % 10 === 0) {
-        // cull items outside of canvas every 10 frames
-        outOfBoundsCullingSystem(gameState.world, {
-          minX: p.width / -2,
-          maxX: p.width / 2,
-          minY: p.height / -2,
-          maxY: p.height / 2,
-        });
-        destroyedEntitiesCullingSystem(gameState.world);
-      }
+
+      /** Cleanup! */
+      // cull items outside of canvas every 10 frames
+      outOfBoundsCullingSystem(gameState.world, {
+        minX: p.width / -2,
+        maxX: p.width / 2,
+        minY: p.height / -2,
+        maxY: p.height / 2,
+      });
+      // cull destroyed entities
+      destroyedEntitiesCullingSystem(gameState.world);
 
       /** Draw systems */
       drawSquaresSystem(gameState.world, p);

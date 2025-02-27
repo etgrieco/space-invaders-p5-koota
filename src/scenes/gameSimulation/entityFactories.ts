@@ -12,6 +12,23 @@ import {
   Velocity,
 } from "./traits";
 
+export function spawnEnemySwarmAnchor(
+  world: World,
+  params: { absolutePosition: { x: number; y: number } }
+) {
+  const SWARM_VEL = 0.01;
+  return world.spawn(
+    Position({
+      posX: params.absolutePosition.x,
+      posY: params.absolutePosition.y,
+    }),
+    Velocity({
+      xVel: SWARM_VEL,
+      yVel: 0,
+    })
+  );
+}
+
 export function spawnEnemyDrone(
   world: World,
   params: {
