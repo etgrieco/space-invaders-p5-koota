@@ -1,6 +1,6 @@
 import { World } from "koota";
 import {
-  DestroyedStatusTrait,
+  DestroyedStatus,
   DrawableSquare,
   FollowerOf,
   IsEnemy,
@@ -95,7 +95,7 @@ export function sideEffectOnPlayerLoseConditionSystem(
 export function drawSquaresSystem(world: World, p: p5) {
   world.query(Position, DrawableSquare).forEach((e) => {
     // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
-    const isDestroyed = !!e.get(DestroyedStatusTrait)?.isDestroyed;
+    const isDestroyed = !!e.get(DestroyedStatus)?.isDestroyed;
     if (isDestroyed) return;
 
     const positionValues = e.get(Position)!;
@@ -108,20 +108,16 @@ export function drawSquaresSystem(world: World, p: p5) {
 }
 
 export function enemyProjectileInteractionSystem(world: World): void {
-  const destroyableEnemies = world.query(
-    IsEnemy,
-    Position,
-    DestroyedStatusTrait
-  );
+  const destroyableEnemies = world.query(IsEnemy, Position, DestroyedStatus);
 
-  const projectiles = world.query(isProjectile, Position, DestroyedStatusTrait);
+  const projectiles = world.query(isProjectile, Position, DestroyedStatus);
 
   destroyableEnemies.forEach((enemyEntity) => {
     const enemyPos = enemyEntity.get(Position)!;
     // scan all projectiles...
     projectiles.forEach((projEntity) => {
       const isProjectileDestroyed =
-        !!projEntity.get(DestroyedStatusTrait)?.isDestroyed;
+        !!projEntity.get(DestroyedStatus)?.isDestroyed;
 
       // NOTE: do we have to check if enemy is destroyed? not right now that there is no way a simultaneous thread can destroy the same enemy, right?
       if (isProjectileDestroyed) return; // no-op if already destroyed
@@ -137,8 +133,8 @@ export function enemyProjectileInteractionSystem(world: World): void {
 
       if (isInX && isInY) {
         // destroy! (enemy + projectile)
-        projEntity.set(DestroyedStatusTrait, { isDestroyed: true });
-        enemyEntity.set(DestroyedStatusTrait, { isDestroyed: true });
+        projEntity.set(DestroyedStatus, { isDestroyed: true });
+        enemyEntity.set(DestroyedStatus, { isDestroyed: true });
       }
     });
   });
@@ -167,8 +163,8 @@ export function outOfBoundsCullingSystem(
 }
 
 export function destroyedEntitiesCullingSystem(world: World) {
-  world.query(DestroyedStatusTrait).forEach((e) => {
-    const { isDestroyed } = e.get(DestroyedStatusTrait)!;
+  world.query(DestroyedStatus).forEach((e) => {
+    const { isDestroyed } = e.get(DestroyedStatus)!;
     if (isDestroyed) {
       e.destroy();
     }

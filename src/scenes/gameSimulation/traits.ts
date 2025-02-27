@@ -25,7 +25,7 @@ export const TwoWayControl = trait<TwoWayControl>({
 export const ThrustVel = trait<ThrustVel>({
   thrustVec: 0,
 });
-export const DestroyedStatusTrait = trait<DestroyedStatus>({
+export const DestroyedStatus = trait<DestroyedStatus>({
   isDestroyed: false,
 });
 

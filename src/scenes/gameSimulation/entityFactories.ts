@@ -1,6 +1,6 @@
 import { Entity, World } from "koota";
 import {
-  DestroyedStatusTrait,
+  DestroyedStatus,
   DrawableSquare,
   FollowerOf,
   IsEnemy,
@@ -53,7 +53,7 @@ export function spawnEnemyDrone(
       posX: params.relativePosition.x,
       posY: params.relativePosition.y,
     }),
-    DestroyedStatusTrait({ isDestroyed: false })
+    DestroyedStatus({ isDestroyed: false })
   );
 }
 

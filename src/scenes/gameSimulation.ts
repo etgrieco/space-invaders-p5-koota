@@ -2,7 +2,7 @@ import p5 from "p5";
 import { TStateTickMachine } from "./types";
 import { createWorld, Entity, World } from "koota";
 import {
-  DestroyedStatusTrait,
+  DestroyedStatus,
   DrawableSquare,
   Position,
   TwoWayControl,
@@ -106,7 +106,7 @@ export function gameSimulationFactory(
                 posY: playerPosition.posY,
               }),
               DrawableSquare({ fillColor: "orange", squareSize: 5 }),
-              DestroyedStatusTrait({ isDestroyed: false })
+              DestroyedStatus({ isDestroyed: false })
             );
           }
           // spawn a projectile at the player
