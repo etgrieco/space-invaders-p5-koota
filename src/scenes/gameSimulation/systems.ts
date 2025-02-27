@@ -1,21 +1,21 @@
 import { World } from "koota";
 import {
   DestroyedStatusTrait,
-  DrawableSquareTrait,
-  FollowerOfRelation,
+  DrawableSquare,
+  FollowerOf,
   IsEnemy,
   IsPlayer,
   isProjectile,
-  PositionTrait,
-  RelativePosTrait,
-  ThrustVelTrait,
-  TwoWayControlTrait,
-  VelocityTrait,
+  Position,
+  RelativePos,
+  ThrustVel,
+  TwoWayControl,
+  Velocity,
 } from "./traits";
 import p5 from "p5";
 
 export function motionSystem(world: World, deps: { deltaTime: number }): void {
-  world.query(PositionTrait, VelocityTrait).updateEach(([pos, vel]) => {
+  world.query(Position, Velocity).updateEach(([pos, vel]) => {
     pos.posX += vel.xVel * deps.deltaTime;
     pos.posY += vel.yVel * deps.deltaTime;
   });
@@ -23,29 +23,48 @@ export function motionSystem(world: World, deps: { deltaTime: number }): void {
 
 export function relativePositionFollowersSystem(world: World): void {
   world
-    .query(PositionTrait, RelativePosTrait, FollowerOfRelation("*"))
+    .query(Position, RelativePos, FollowerOf("*"))
     .updateEach(([pos, relativePos], e) => {
-      const target = e.targetFor(FollowerOfRelation)!;
-      const followedEntityTargetPos = target.get(PositionTrait)!;
+      const target = e.targetFor(FollowerOf)!;
+      const followedEntityTargetPos = target.get(Position)!;
       pos.posX = followedEntityTargetPos.posX + relativePos.posX;
       pos.posY = followedEntityTargetPos.posY + relativePos.posY;
     });
 }
 
 export function playerControlToThrustAndVelocitySystem(world: World): void {
-  world
-    .query(TwoWayControlTrait, ThrustVelTrait, VelocityTrait, IsPlayer)
-    .select(TwoWayControlTrait, ThrustVelTrait, VelocityTrait)
-    .updateEach(([con, thrust, vel]) => {
-      if (con.dir === "e") {
-        vel.xVel = thrust.absThrust;
-      } else if (con.dir === "w") {
-        vel.xVel = -1 * thrust.absThrust;
-      } else if (con.dir === "none") {
-        vel.xVel = 0;
-      } else {
-        throw new Error(`Unhandled controller condition ${con.dir}`);
+  const thrustablePlayers = world.query(
+    TwoWayControl,
+    ThrustVel,
+    Velocity,
+    IsPlayer
+  );
+
+  // first, sync controls with thrust
+  thrustablePlayers
+    .select(TwoWayControl, ThrustVel)
+    .updateEach(([con, thrust]) => {
+      switch (con.dir) {
+        case "e":
+          thrust.thrustVec = 1;
+          break;
+        case "w":
+          thrust.thrustVec = -1;
+          break;
+        case "none":
+          thrust.thrustVec = 0;
+          break;
+        default:
+          break;
       }
+    });
+
+  // then, update velocity accordingly
+  const PLAYER_SHIP_VELOCITY = 1;
+  thrustablePlayers
+    .select(ThrustVel, Velocity)
+    .updateEach(([thrustVel, vel]) => {
+      vel.xVel = thrustVel.thrustVec * PLAYER_SHIP_VELOCITY;
     });
 }
 
@@ -53,13 +72,13 @@ export function sideEffectOnPlayerLoseConditionSystem(
   world: World,
   deps: { callbackOnLoseCondition: () => void }
 ): void {
-  const worldShips = world.query(PositionTrait, IsEnemy);
+  const worldShips = world.query(Position, IsEnemy);
   for (const entity of worldShips) {
-    const ship = entity.get(PositionTrait)!;
+    const ship = entity.get(Position)!;
     // This is probably generalizable into a trait regarding collisions?
     let hasCalledNext = false;
-    for (const entity of world.query(PositionTrait, IsPlayer)) {
-      const playerShip = entity.get(PositionTrait)!;
+    for (const entity of world.query(Position, IsPlayer)) {
+      const playerShip = entity.get(Position)!;
       if (ship.posX > playerShip.posX && ship.posY > playerShip.posY) {
         // a player has touched an enemy!
         hasCalledNext = true;
@@ -74,13 +93,13 @@ export function sideEffectOnPlayerLoseConditionSystem(
 }
 
 export function drawSquaresSystem(world: World, p: p5) {
-  world.query(PositionTrait, DrawableSquareTrait).forEach((e) => {
+  world.query(Position, DrawableSquare).forEach((e) => {
     // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
     const isDestroyed = !!e.get(DestroyedStatusTrait)?.isDestroyed;
     if (isDestroyed) return;
 
-    const positionValues = e.get(PositionTrait)!;
-    const squareValues = e.get(DrawableSquareTrait)!;
+    const positionValues = e.get(Position)!;
+    const squareValues = e.get(DrawableSquare)!;
     p.push();
     p.fill(squareValues.fillColor);
     p.square(positionValues.posX, positionValues.posY, squareValues.squareSize);
@@ -91,18 +110,14 @@ export function drawSquaresSystem(world: World, p: p5) {
 export function enemyProjectileInteractionSystem(world: World): void {
   const destroyableEnemies = world.query(
     IsEnemy,
-    PositionTrait,
+    Position,
     DestroyedStatusTrait
   );
 
-  const projectiles = world.query(
-    isProjectile,
-    PositionTrait,
-    DestroyedStatusTrait
-  );
+  const projectiles = world.query(isProjectile, Position, DestroyedStatusTrait);
 
   destroyableEnemies.forEach((enemyEntity) => {
-    const enemyPos = enemyEntity.get(PositionTrait)!;
+    const enemyPos = enemyEntity.get(Position)!;
     // scan all projectiles...
     projectiles.forEach((projEntity) => {
       const isProjectileDestroyed =
@@ -111,7 +126,7 @@ export function enemyProjectileInteractionSystem(world: World): void {
       // NOTE: do we have to check if enemy is destroyed? not right now that there is no way a simultaneous thread can destroy the same enemy, right?
       if (isProjectileDestroyed) return; // no-op if already destroyed
 
-      const projEntityPos = projEntity.get(PositionTrait)!;
+      const projEntityPos = projEntity.get(Position)!;
 
       // hard-code bounding box for now on all enemies
       const distX = enemyPos.posX - projEntityPos.posX;
@@ -138,8 +153,8 @@ export function outOfBoundsCullingSystem(
     maxY: number;
   }
 ): void {
-  world.query(PositionTrait).forEach((e) => {
-    const pos = e.get(PositionTrait)!;
+  world.query(Position).forEach((e) => {
+    const pos = e.get(Position)!;
     if (
       pos.posX < params.minX ||
       pos.posX > params.maxX ||

@@ -3,15 +3,10 @@ import { TStateTickMachine } from "./types";
 import { createWorld, Entity, World } from "koota";
 import {
   DestroyedStatusTrait,
-  DrawableSquareTrait,
-  FollowerOfRelation,
-  IsEnemy,
-  IsPlayer,
-  PositionTrait,
-  RelativePosTrait,
-  ThrustVelTrait,
-  TwoWayControlTrait,
-  VelocityTrait,
+  DrawableSquare,
+  Position,
+  TwoWayControl,
+  Velocity,
   isProjectile,
 } from "./gameSimulation/traits";
 import {
@@ -24,6 +19,7 @@ import {
   relativePositionFollowersSystem,
   sideEffectOnPlayerLoseConditionSystem,
 } from "./gameSimulation/systems";
+import { spawnEnemyDrone, spawnPlayer } from "./gameSimulation/entityFactories";
 
 type GameSimulationState = {
   world: World;
@@ -38,55 +34,41 @@ function createInitialGameSimulationState(p: p5): GameSimulationState {
 
   // create enemy "anchor", which the other ships all follow
   const enemySwarmAnchorEntity = world.spawn(
-    PositionTrait({
+    Position({
       posX: p.width / -2 + 100,
       posY: p.height / -2 + 100,
     }),
-    VelocityTrait({
+    Velocity({
       xVel: SHIP_START_VEL,
       yVel: 0,
     })
   );
 
-  const enemySwarmAnchorPosition = enemySwarmAnchorEntity.get(PositionTrait)!;
-
-  // 5 x 10 grid
+  const enemySwarmAnchorPosition = enemySwarmAnchorEntity.get(Position)!;
+  // 5 x 10 grid of enemy ships
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
       // spawn enemy ships
-      world.spawn(
-        PositionTrait({
-          posX: enemySwarmAnchorPosition.posX + col * 50,
-          posY: enemySwarmAnchorPosition.posY + row * 50,
-        }),
-        DrawableSquareTrait({
-          fillColor: "green",
-          squareSize: 25,
-        }),
-        IsEnemy,
-        FollowerOfRelation(enemySwarmAnchorEntity),
-        // A position relative to the swarm
-        RelativePosTrait({
-          posX: col * 50,
-          posY: row * 50,
-        }),
-        DestroyedStatusTrait({ isDestroyed: false })
-      );
+      spawnEnemyDrone(world, {
+        absolutePosition: {
+          x: enemySwarmAnchorPosition.posX + col * 50,
+          y: enemySwarmAnchorPosition.posY + row * 50,
+        },
+        relativePosition: {
+          x: col * 50,
+          y: row * 50,
+        },
+        followingTarget: enemySwarmAnchorEntity,
+      });
     }
   }
 
-  // spawn player
-  const playerEntity = world.spawn(
-    PositionTrait({
-      posX: 0,
-      posY: p.height / 2 - 100,
-    }),
-    IsPlayer,
-    DrawableSquareTrait({ fillColor: "red", squareSize: 50 }),
-    TwoWayControlTrait,
-    VelocityTrait,
-    ThrustVelTrait({ absThrust: 1 })
-  );
+  const playerEntity = spawnPlayer(world, {
+    absolutePosition: {
+      x: 0,
+      y: p.height / 2 - 100,
+    },
+  });
 
   return {
     world,
@@ -110,24 +92,23 @@ export function gameSimulationFactory(
     function (e) {
       switch (e.code) {
         case "ArrowLeft":
-          gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "w" });
+          gameSimState.playerEntity.set(TwoWayControl, { dir: "w" });
           break;
         case "ArrowRight":
-          gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "e" });
+          gameSimState.playerEntity.set(TwoWayControl, { dir: "e" });
           break;
         case "Space":
           {
-            const playerPosition =
-              gameSimState.playerEntity.get(PositionTrait)!;
+            const playerPosition = gameSimState.playerEntity.get(Position)!;
             // projectile definition...
             gameSimState.world.spawn(
               isProjectile,
-              VelocityTrait({ yVel: -1 }),
-              PositionTrait({
+              Velocity({ yVel: -1 }),
+              Position({
                 posX: playerPosition.posX,
                 posY: playerPosition.posY,
               }),
-              DrawableSquareTrait({ fillColor: "orange", squareSize: 5 }),
+              DrawableSquare({ fillColor: "orange", squareSize: 5 }),
               DestroyedStatusTrait({ isDestroyed: false })
             );
           }
@@ -146,7 +127,7 @@ export function gameSimulationFactory(
     switch (e.code) {
       case "ArrowLeft":
       case "ArrowRight":
-        gameSimState.playerEntity.set(TwoWayControlTrait, { dir: "none" });
+        gameSimState.playerEntity.set(TwoWayControl, { dir: "none" });
         break;
       default:
         break;
@@ -162,25 +143,25 @@ export function gameSimulationFactory(
       const gameState = this.state;
 
       const enemySwarmAnchorPos =
-        gameState.enemySwarmAnchorEntity.get(PositionTrait)!;
+        gameState.enemySwarmAnchorEntity.get(Position)!;
       const enemySwarmAnchorVel =
-        gameState.enemySwarmAnchorEntity.get(VelocityTrait)!;
+        gameState.enemySwarmAnchorEntity.get(Velocity)!;
 
       // This is a very adhoc control of the enemy swarm
       if (enemySwarmAnchorPos.posX > 200 - p.width / 2) {
-        gameState.enemySwarmAnchorEntity.set(VelocityTrait, {
+        gameState.enemySwarmAnchorEntity.set(Velocity, {
           xVel: enemySwarmAnchorVel.xVel * -1,
         });
-        gameState.enemySwarmAnchorEntity.set(PositionTrait, {
+        gameState.enemySwarmAnchorEntity.set(Position, {
           posY: enemySwarmAnchorPos.posY + 50,
           // set to boundary again, so that next tick is always away
           posX: 200 - p.width / 2,
         });
       } else if (enemySwarmAnchorPos.posX < 50 - p.width / 2) {
-        gameState.enemySwarmAnchorEntity.set(VelocityTrait, {
+        gameState.enemySwarmAnchorEntity.set(Velocity, {
           xVel: enemySwarmAnchorVel.xVel * -1,
         });
-        gameState.enemySwarmAnchorEntity.set(PositionTrait, {
+        gameState.enemySwarmAnchorEntity.set(Position, {
           posY: enemySwarmAnchorPos.posY + 50,
           // set to boundary again, so that next tick is always away
           posX: 50 - p.width / 2,

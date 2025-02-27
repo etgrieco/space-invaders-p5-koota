@@ -4,27 +4,27 @@ type Position = { posX: number; posY: number };
 type DrawableSquare = { squareSize: number; fillColor: string };
 type Velocity = { xVel: number; yVel: number };
 type TwoWayControl = { dir: "e" | "w" | "none" };
-type ThrustVel = { absThrust: number };
+type ThrustVel = { thrustVec: number };
 type RelativePos = { posX: number; posY: number };
 type DestroyedStatus = { isDestroyed: boolean };
 
-export const FollowerOfRelation = relation({
+export const FollowerOf = relation({
   exclusive: true,
 });
+export const RelativePos = trait<RelativePos>({ posX: 0, posY: 0 });
 
-export const PositionTrait = trait<Position>({ posX: 0, posY: 0 });
-export const VelocityTrait = trait<Velocity>({ xVel: 0, yVel: 0 });
-export const DrawableSquareTrait = trait<DrawableSquare>({
+export const Position = trait<Position>({ posX: 0, posY: 0 });
+export const Velocity = trait<Velocity>({ xVel: 0, yVel: 0 });
+export const DrawableSquare = trait<DrawableSquare>({
   fillColor: "green",
   squareSize: 0,
 });
-export const TwoWayControlTrait = trait<TwoWayControl>({
+export const TwoWayControl = trait<TwoWayControl>({
   dir: "none",
 });
-export const ThrustVelTrait = trait<ThrustVel>({
-  absThrust: 0,
+export const ThrustVel = trait<ThrustVel>({
+  thrustVec: 0,
 });
-export const RelativePosTrait = trait<RelativePos>({ posX: 0, posY: 0 });
 export const DestroyedStatusTrait = trait<DestroyedStatus>({
   isDestroyed: false,
 });
