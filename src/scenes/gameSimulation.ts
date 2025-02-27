@@ -20,6 +20,7 @@ import {
   sideEffectOnPlayerLoseConditionSystem,
 } from "./gameSimulation/systems";
 import { spawnEnemyDrone, spawnPlayer } from "./gameSimulation/entityFactories";
+import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
 
 type GameSimulationState = {
   world: World;
@@ -142,35 +143,17 @@ export function gameSimulationFactory(
     tick() {
       const gameState = this.state;
 
-      const enemySwarmAnchorPos =
-        gameState.enemySwarmAnchorEntity.get(Position)!;
-      const enemySwarmAnchorVel =
-        gameState.enemySwarmAnchorEntity.get(Velocity)!;
+      /** Adhoc systems */
+      enemySwarmMovementPatternSystem(
+        gameState.enemySwarmAnchorEntity,
+        50 - p.width / 2,
+        200 - p.width / 2
+      );
 
-      // This is a very adhoc control of the enemy swarm
-      if (enemySwarmAnchorPos.posX > 200 - p.width / 2) {
-        gameState.enemySwarmAnchorEntity.set(Velocity, {
-          xVel: enemySwarmAnchorVel.xVel * -1,
-        });
-        gameState.enemySwarmAnchorEntity.set(Position, {
-          posY: enemySwarmAnchorPos.posY + 50,
-          // set to boundary again, so that next tick is always away
-          posX: 200 - p.width / 2,
-        });
-      } else if (enemySwarmAnchorPos.posX < 50 - p.width / 2) {
-        gameState.enemySwarmAnchorEntity.set(Velocity, {
-          xVel: enemySwarmAnchorVel.xVel * -1,
-        });
-        gameState.enemySwarmAnchorEntity.set(Position, {
-          posY: enemySwarmAnchorPos.posY + 50,
-          // set to boundary again, so that next tick is always away
-          posX: 50 - p.width / 2,
-        });
-      }
+      /** Simulation systems */
 
       // Handle movable entities
       motionSystem(gameState.world, { deltaTime: p.deltaTime });
-
       // Handle following transform behavior
       relativePositionFollowersSystem(gameState.world);
       // Handle TwoWayControl behavior on velocity
@@ -195,7 +178,8 @@ export function gameSimulationFactory(
         });
         destroyedEntitiesCullingSystem(gameState.world);
       }
-      // Draw operations
+
+      /** Draw systems */
       drawSquaresSystem(gameState.world, p);
     },
   };
