@@ -1,10 +1,12 @@
 import { Entity, World } from "koota";
 import {
+  AABB,
   DestroyedStatus,
   DrawableSquare,
   FollowerOf,
   IsEnemy,
   IsPlayer,
+  isProjectile,
   Position,
   RelativePos,
   ThrustVel,
@@ -53,7 +55,13 @@ export function spawnEnemyDrone(
       posX: params.relativePosition.x,
       posY: params.relativePosition.y,
     }),
-    DestroyedStatus({ isDestroyed: false })
+    DestroyedStatus({ isDestroyed: false }),
+    AABB({
+      x: params.absolutePosition.x,
+      y: params.absolutePosition.y,
+      height: 25,
+      width: 25,
+    })
   );
 }
 
@@ -76,5 +84,27 @@ export function spawnPlayer(
     TwoWayControl,
     Velocity,
     ThrustVel({ thrustVec: 0 })
+  );
+}
+
+export function spawnProjectile(
+  world: World,
+  params: { absolutePosition: { x: number; y: number } }
+) {
+  return world.spawn(
+    isProjectile,
+    Velocity({ yVel: -1 }),
+    Position({
+      posX: params.absolutePosition.x,
+      posY: params.absolutePosition.y,
+    }),
+    DrawableSquare({ fillColor: "orange", squareSize: 5 }),
+    DestroyedStatus({ isDestroyed: false }),
+    AABB({
+      x: params.absolutePosition.x,
+      y: params.absolutePosition.y,
+      height: 5,
+      width: 5,
+    })
   );
 }

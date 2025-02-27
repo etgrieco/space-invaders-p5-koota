@@ -7,6 +7,7 @@ type TwoWayControl = { dir: "e" | "w" | "none" };
 type ThrustVel = { thrustVec: number };
 type RelativePos = { posX: number; posY: number };
 type DestroyedStatus = { isDestroyed: boolean };
+type AABB = { x: number; y: number; width: number; height: number };
 
 export const FollowerOf = relation({
   exclusive: true,
@@ -28,6 +29,7 @@ export const ThrustVel = trait<ThrustVel>({
 export const DestroyedStatus = trait<DestroyedStatus>({
   isDestroyed: false,
 });
+export const AABB = trait<AABB>({ x: 0, y: 0, width: 0, height: 0 });
 
 export const IsEnemy = trait();
 export const IsPlayer = trait();

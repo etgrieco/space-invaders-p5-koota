@@ -1,14 +1,7 @@
 import p5 from "p5";
 import { TStateTickMachine } from "./types";
 import { createWorld, Entity, World } from "koota";
-import {
-  DestroyedStatus,
-  DrawableSquare,
-  Position,
-  TwoWayControl,
-  Velocity,
-  isProjectile,
-} from "./gameSimulation/traits";
+import { Position, TwoWayControl } from "./gameSimulation/traits";
 import {
   destroyedEntitiesCullingSystem,
   drawSquaresSystem,
@@ -18,11 +11,13 @@ import {
   playerControlToThrustAndVelocitySystem,
   relativePositionFollowersSystem,
   sideEffectOnPlayerLoseConditionSystem,
+  synchronizePositionAABBSystem,
 } from "./gameSimulation/systems";
 import {
   spawnEnemyDrone,
   spawnEnemySwarmAnchor,
   spawnPlayer,
+  spawnProjectile,
 } from "./gameSimulation/entityFactories";
 import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
 
@@ -98,16 +93,12 @@ export function gameSimulationFactory(
           {
             const playerPosition = gameSimState.playerEntity.get(Position)!;
             // projectile definition...
-            gameSimState.world.spawn(
-              isProjectile,
-              Velocity({ yVel: -1 }),
-              Position({
-                posX: playerPosition.posX,
-                posY: playerPosition.posY,
-              }),
-              DrawableSquare({ fillColor: "orange", squareSize: 5 }),
-              DestroyedStatus({ isDestroyed: false })
-            );
+            spawnProjectile(gameSimState.world, {
+              absolutePosition: {
+                x: playerPosition.posX,
+                y: playerPosition.posY,
+              },
+            });
           }
           // spawn a projectile at the player
           break;
@@ -148,12 +139,7 @@ export function gameSimulationFactory(
 
       /** Simulation systems */
 
-      // Handle movable entities
-      motionSystem(gameState.world, { deltaTime: p.deltaTime });
-      // Handle following transform behavior
-      relativePositionFollowersSystem(gameState.world);
-      // Handle TwoWayControl behavior on velocity
-      playerControlToThrustAndVelocitySystem(gameState.world);
+      // Important! First check for collision/damage conditions before processing moving entities
       // naive, but functional - check end condition -- collision on y-axis with playership
       sideEffectOnPlayerLoseConditionSystem(gameState.world, {
         callbackOnLoseCondition() {
@@ -163,6 +149,13 @@ export function gameSimulationFactory(
       });
       // handle collisions between projectiles and vulnerable entities...
       enemyProjectileInteractionSystem(gameState.world);
+
+      // Handle movable entities
+      motionSystem(gameState.world, { deltaTime: p.deltaTime });
+      // Handle following transform behavior
+      relativePositionFollowersSystem(gameState.world);
+      // Handle TwoWayControl behavior on velocity
+      playerControlToThrustAndVelocitySystem(gameState.world);
 
       /** Cleanup! */
       // cull items outside of canvas every 10 frames
@@ -174,6 +167,9 @@ export function gameSimulationFactory(
       });
       // cull destroyed entities
       destroyedEntitiesCullingSystem(gameState.world);
+
+      // After all transformations, re-synchronize our bounding-boxes and positions
+      synchronizePositionAABBSystem(gameState.world);
 
       /** Draw systems */
       drawSquaresSystem(gameState.world, p);
