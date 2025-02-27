@@ -108,6 +108,17 @@ export function drawSquaresSystem(world: World, p: p5) {
   });
 }
 
+export function drawABBSystem_debug(world: World, p: p5) {
+  world.query(AABB).forEach((e) => {
+    const aabbValues = e.get(AABB)!;
+    p.push();
+    p.stroke("white");
+    p.fill(255, 255, 255, 0); // transparent fill
+    p.rect(aabbValues.x, aabbValues.y, aabbValues.width, aabbValues.height);
+    p.pop();
+  });
+}
+
 export function enemyProjectileInteractionSystem(world: World): void {
   const destroyableEnemies = world.query(IsEnemy, Position, DestroyedStatus);
 

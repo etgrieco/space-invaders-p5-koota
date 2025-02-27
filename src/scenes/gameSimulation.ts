@@ -4,6 +4,7 @@ import { createWorld, Entity, World } from "koota";
 import { Position, TwoWayControl } from "./gameSimulation/traits";
 import {
   destroyedEntitiesCullingSystem,
+  drawABBSystem_debug,
   drawSquaresSystem,
   enemyProjectileInteractionSystem,
   motionSystem,
@@ -20,6 +21,12 @@ import {
   spawnProjectile,
 } from "./gameSimulation/entityFactories";
 import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
+import { debugCollisions } from "./gameSimulation/debugSystems";
+
+const DEBUG_MODE = false;
+
+let unpausePrevTick = false;
+let isPaused_debug = false;
 
 type GameSimulationState = {
   world: World;
@@ -79,9 +86,22 @@ export function gameSimulationFactory(
   // SETUP: keyboard listener for controls
   const gameSimState = createInitialGameSimulationState(p);
   const unmountSpecialKeyHandlers = new AbortController();
+
+  // Debug while paused keys
+  document.addEventListener("keydown", function (e) {
+    if (!isPaused_debug) return;
+    switch (e.code) {
+      case "Backslash":
+        isPaused_debug = false;
+        unpausePrevTick = true;
+        break;
+    }
+  });
+
   document.addEventListener(
     "keydown",
     function (e) {
+      if (isPaused_debug) return;
       switch (e.code) {
         case "ArrowLeft":
           gameSimState.playerEntity.set(TwoWayControl, { dir: "w" });
@@ -112,6 +132,7 @@ export function gameSimulationFactory(
   );
 
   document.addEventListener("keyup", function (e) {
+    if (isPaused_debug) return;
     switch (e.code) {
       case "ArrowLeft":
       case "ArrowRight":
@@ -129,6 +150,22 @@ export function gameSimulationFactory(
     state: gameSimState,
     tick() {
       const gameState = this.state;
+
+      if (DEBUG_MODE) {
+        // pause on collision
+        debugCollisions(gameState.world, () => {
+          isPaused_debug = true;
+        });
+
+        if (isPaused_debug && !unpausePrevTick) {
+          // draw stuff
+          drawRoutine(gameState.world, p);
+          drawABBSystem_debug(gameState.world, p);
+          return;
+        }
+        // set unpause prev tick back to false
+        unpausePrevTick = false;
+      }
 
       /** Adhoc systems */
       enemySwarmMovementPatternSystem(
@@ -172,9 +209,13 @@ export function gameSimulationFactory(
       synchronizePositionAABBSystem(gameState.world);
 
       /** Draw systems */
-      drawSquaresSystem(gameState.world, p);
+      drawRoutine(gameState.world, p);
     },
   };
   state.tick = state.tick.bind(state);
   return state;
+}
+
+function drawRoutine(world: World, p: p5) {
+  drawSquaresSystem(world, p);
 }
