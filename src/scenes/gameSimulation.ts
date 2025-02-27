@@ -291,8 +291,9 @@ export function gameSimulationFactory(
             });
         });
 
-      // cleanup! cull items outside of canvas every 10 frames
+      // cleanup!
       if (p.frameCount % 10 === 0) {
+        // cull items outside of canvas every 10 frames
         this.state.world.query(PositionTrait).forEach((e) => {
           const pos = assertPresent(e.get(PositionTrait));
           if (
@@ -301,6 +302,13 @@ export function gameSimulationFactory(
             pos.posY < p.height / -2 ||
             pos.posY > p.height / 2
           ) {
+            e.destroy();
+          }
+        });
+        // cull destroyed entities
+        this.state.world.query(DestroyedStatusTrait).forEach((e) => {
+          const { isDestroyed } = assertPresent(e.get(DestroyedStatusTrait));
+          if (isDestroyed) {
             e.destroy();
           }
         });
