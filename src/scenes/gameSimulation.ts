@@ -1,53 +1,80 @@
-import type p5 from "p5";
+import p5 from "p5";
 import { TStateTickMachine } from "./types";
+import { createWorld, Entity, World } from "koota";
+import { Position, TwoWayControl } from "./gameSimulation/traits";
+import {
+  destroyedEntitiesCullingSystem,
+  drawABBSystem_debug,
+  drawSquaresSystem,
+  enemyProjectileInteractionSystem,
+  motionSystem,
+  outOfBoundsCullingSystem,
+  playerControlToThrustAndVelocitySystem,
+  relativePositionFollowersSystem,
+  sideEffectOnPlayerLoseConditionSystem,
+  synchronizePositionAABBSystem,
+} from "./gameSimulation/systems";
+import {
+  spawnEnemyDrone,
+  spawnEnemySwarmAnchor,
+  spawnPlayer,
+  spawnProjectile,
+} from "./gameSimulation/entityFactories";
+import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
+import { debugCollisions } from "./gameSimulation/debugSystems";
 
-type PositionEntity = { posX: number; posY: number };
-type MovableEntity = { xVel: number; yVel: number };
-type FollowsEntity = PositionEntity & {
-  target: PositionEntity;
-  relativePos: { posX: number; posY: number };
-};
+const DEBUG_MODE = false;
+
+let unpausePrevTick = false;
+let isPaused_debug = false;
 
 type GameSimulationState = {
-  playerShipPos: PositionEntity;
-  enemyShips: Array<PositionEntity & FollowsEntity>;
-  enemySwarmAnchor: PositionEntity & MovableEntity;
+  world: World;
+  enemySwarmAnchorEntity: Entity;
+  playerEntity: Entity;
 };
 
 function createInitialGameSimulationState(p: p5): GameSimulationState {
-  const SHIP_START_VEL = 0.05;
+  const world = createWorld();
 
-  const enemySwarmAnchor = {
-    posX: p.width / -2 + 100,
-    posY: p.height / -2 + 100,
-    xVel: SHIP_START_VEL,
-    yVel: 0,
-  };
+  // create enemy "anchor", which the other ships all follow
+  const enemySwarmAnchorEntity = spawnEnemySwarmAnchor(world, {
+    absolutePosition: {
+      x: p.width / -2 + 100,
+      y: p.height / -2 + 100,
+    },
+  });
 
-  let enemyShips: GameSimulationState["enemyShips"] = [];
-  // 5 x 10 grid
+  const enemySwarmAnchorPosition = enemySwarmAnchorEntity.get(Position)!;
+  // 5 x 10 grid of enemy ships
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
-      const relativePos = {
-        posX: col * 50,
-        posY: row * 50,
-      };
-      enemyShips.push({
-        target: enemySwarmAnchor,
-        relativePos: relativePos,
-        posX: enemySwarmAnchor.posX + col * 50,
-        posY: enemySwarmAnchor.posY + row * 50,
+      // spawn enemy ships
+      spawnEnemyDrone(world, {
+        absolutePosition: {
+          x: enemySwarmAnchorPosition.posX + col * 50,
+          y: enemySwarmAnchorPosition.posY + row * 50,
+        },
+        relativePosition: {
+          x: col * 50,
+          y: row * 50,
+        },
+        followingTarget: enemySwarmAnchorEntity,
       });
     }
   }
 
-  return {
-    playerShipPos: {
-      posX: 0,
-      posY: p.height / 2 - 100,
+  const playerEntity = spawnPlayer(world, {
+    absolutePosition: {
+      x: 0,
+      y: p.height / 2 - 100,
     },
-    enemyShips: enemyShips,
-    enemySwarmAnchor: enemySwarmAnchor,
+  });
+
+  return {
+    world,
+    enemySwarmAnchorEntity,
+    playerEntity,
   };
 }
 
@@ -56,62 +83,139 @@ export function gameSimulationFactory(
   // A callback to trigger when simulation is ready to go to the next scene
   next: (state: GameSimulationState) => void
 ): TStateTickMachine<GameSimulationState> {
-  const state = {
-    state: createInitialGameSimulationState(p),
-    tick() {
-      // MOVE at boundary
-      if (this.state.enemySwarmAnchor.posX > 200 - p.width / 2) {
-        this.state.enemySwarmAnchor.xVel *= -1;
-        this.state.enemySwarmAnchor.posY += 50;
-        // set to boundary again, so that next tick is always away
-        this.state.enemySwarmAnchor.posX = 200 - p.width / 2;
-      } else if (this.state.enemySwarmAnchor.posX < 50 - p.width / 2) {
-        this.state.enemySwarmAnchor.xVel *= -1;
-        this.state.enemySwarmAnchor.posY += 50;
-        // set to boundary again, so that next tick is always away
-        this.state.enemySwarmAnchor.posX = 50 - p.width / 2;
-      }
+  // SETUP: keyboard listener for controls
+  const gameSimState = createInitialGameSimulationState(p);
+  const unmountSpecialKeyHandlers = new AbortController();
 
-      // MOVE based on inherent velocity (generalizable)
-      this.state.enemySwarmAnchor.posX +=
-        this.state.enemySwarmAnchor.xVel * p.deltaTime;
+  // Debug while paused keys
+  document.addEventListener("keydown", function (e) {
+    if (!isPaused_debug) return;
+    switch (e.code) {
+      case "Backslash":
+        isPaused_debug = false;
+        unpausePrevTick = true;
+        break;
+    }
+  });
 
-      // FOLLOW the anchor
-      this.state.enemyShips.forEach((e) => {
-        e.posX = e.target.posX + e.relativePos.posX;
-        e.posY = e.target.posY + e.relativePos.posY;
-      });
-
-      // check end condition -- collision on y-axis with playership
-      for (const ship of this.state.enemyShips) {
-        // TODO: collision model
-        if (
-          ship.posX > this.state.playerShipPos.posX &&
-          ship.posY > this.state.playerShipPos.posY
-        ) {
-          // too far!
-          console.log("call next");
-          next(this.state);
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      if (isPaused_debug) return;
+      switch (e.code) {
+        case "ArrowLeft":
+          gameSimState.playerEntity.set(TwoWayControl, { dir: "w" });
           break;
-        }
+        case "ArrowRight":
+          gameSimState.playerEntity.set(TwoWayControl, { dir: "e" });
+          break;
+        case "Space":
+          {
+            const playerPosition = gameSimState.playerEntity.get(Position)!;
+            // projectile definition...
+            spawnProjectile(gameSimState.world, {
+              absolutePosition: {
+                x: playerPosition.posX,
+                y: playerPosition.posY,
+              },
+            });
+          }
+          // spawn a projectile at the player
+          break;
+        default:
+          break;
       }
+    },
+    {
+      signal: unmountSpecialKeyHandlers.signal,
+    }
+  );
+
+  document.addEventListener("keyup", function (e) {
+    if (isPaused_debug) return;
+    switch (e.code) {
+      case "ArrowLeft":
+      case "ArrowRight":
+        gameSimState.playerEntity.set(TwoWayControl, { dir: "none" });
+        break;
+      default:
+        break;
+    }
+  });
+  function cleanup() {
+    unmountSpecialKeyHandlers.abort();
+  }
+
+  const state = {
+    state: gameSimState,
+    tick() {
+      const gameState = this.state;
+
+      if (DEBUG_MODE) {
+        // pause on collision
+        debugCollisions(gameState.world, () => {
+          isPaused_debug = true;
+        });
+
+        if (isPaused_debug && !unpausePrevTick) {
+          // draw stuff
+          drawRoutine(gameState.world, p);
+          drawABBSystem_debug(gameState.world, p);
+          return;
+        }
+        // set unpause prev tick back to false
+        unpausePrevTick = false;
+      }
+
+      /** Adhoc systems */
+      enemySwarmMovementPatternSystem(
+        gameState.enemySwarmAnchorEntity,
+        50 - p.width / 2,
+        200 - p.width / 2
+      );
+
+      /** Simulation systems */
+
+      // Important! First check for collision/damage conditions before processing moving entities
+      // naive, but functional - check end condition -- collision on y-axis with playership
+      sideEffectOnPlayerLoseConditionSystem(gameState.world, {
+        callbackOnLoseCondition() {
+          cleanup();
+          next(gameState);
+        },
+      });
+      // handle collisions between projectiles and vulnerable entities...
+      enemyProjectileInteractionSystem(gameState.world);
+
+      // Handle movable entities
+      motionSystem(gameState.world, { deltaTime: p.deltaTime });
+      // Handle following transform behavior
+      relativePositionFollowersSystem(gameState.world);
+      // Handle TwoWayControl behavior on velocity
+      playerControlToThrustAndVelocitySystem(gameState.world);
+
+      /** Cleanup! */
+      // cull items outside of canvas every 10 frames
+      outOfBoundsCullingSystem(gameState.world, {
+        minX: p.width / -2,
+        maxX: p.width / 2,
+        minY: p.height / -2,
+        maxY: p.height / 2,
+      });
+      // cull destroyed entities
+      destroyedEntitiesCullingSystem(gameState.world);
+
+      // After all transformations, re-synchronize our bounding-boxes and positions
+      synchronizePositionAABBSystem(gameState.world);
+
+      /** Draw systems */
+      drawRoutine(gameState.world, p);
     },
   };
   state.tick = state.tick.bind(state);
   return state;
 }
 
-export function drawGame(p: p5, state: GameSimulationState) {
-  // draw player ship
-  p.push();
-  p.fill("red");
-  p.square(state.playerShipPos.posX, state.playerShipPos.posY, 50);
-  p.pop();
-  // draw enemies
-  state.enemyShips.forEach((e) => {
-    p.push();
-    p.fill("red");
-    p.square(e.posX, e.posY, 25);
-    p.pop();
-  });
+function drawRoutine(world: World, p: p5) {
+  drawSquaresSystem(world, p);
 }
