@@ -10,9 +10,11 @@ import {
   Position,
   ThrustVel,
   TwoWayControl,
+  Mesh,
   Velocity,
 } from "./traits";
 import p5 from "p5";
+import { ThreeDeps } from "../gameSimulation";
 
 export function motionSystem(world: World, deps: { deltaTime: number }): void {
   world.query(Position, Velocity).updateEach(([pos, vel]) => {
@@ -117,6 +119,28 @@ export function drawSquaresSystem(world: World, p: p5) {
   });
 }
 
+export function updateMeshPositions_Three(world: World, three: ThreeDeps) {
+  const POSITION_SCALAR = 0.01;
+
+  const meshes = world.query(Position, Mesh).flatMap((e) => {
+    // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
+    const isDestroyed = !!e.get(DestroyedStatus)?.isDestroyed;
+    if (isDestroyed) {
+      return [];
+    }
+
+    const { mesh } = e.get(Mesh)!;
+
+    const positionValues = e.get(Position)!;
+
+    mesh.position.x = positionValues.posX * POSITION_SCALAR;
+    mesh.position.y = positionValues.posY * POSITION_SCALAR;
+    return [mesh];
+  });
+
+  three.scene.add(...meshes);
+}
+
 export function drawABBSystem_debug(world: World, p: p5) {
   world.query(AABB).forEach((e) => {
     const aabbValues = e.get(AABB)!;
@@ -190,9 +214,52 @@ export function outOfBoundsCullingSystem(
   });
 }
 
+export function outOfBoundsCullingSystem_Three(
+  world: World,
+  params: {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  },
+  three: ThreeDeps
+): void {
+  world.query(Position).forEach((e) => {
+    const pos = e.get(Position)!;
+    if (e.has(Mesh)) {
+      three.scene.remove(e.get(Mesh)!.mesh);
+    }
+    if (
+      pos.posX < params.minX ||
+      pos.posX > params.maxX ||
+      pos.posY < params.minY ||
+      pos.posY > params.maxY
+    ) {
+      e.destroy();
+    }
+  });
+}
+
 export function destroyedEntitiesCullingSystem(world: World) {
   world.query(DestroyedStatus).forEach((e) => {
     const { isDestroyed } = e.get(DestroyedStatus)!;
+    if (isDestroyed) {
+      e.destroy();
+    }
+  });
+}
+
+export function destroyedEntitiesCullingSystem_Three(
+  world: World,
+  three: ThreeDeps
+) {
+  world.query(DestroyedStatus).forEach((e) => {
+    const { isDestroyed } = e.get(DestroyedStatus)!;
+
+    if (e.has(Mesh)) {
+      three.scene.remove(e.get(Mesh)!.mesh);
+    }
+
     if (isDestroyed) {
       e.destroy();
     }
