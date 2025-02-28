@@ -120,9 +120,18 @@ export function drawABBSystem_debug(world: World, p: p5) {
 }
 
 export function enemyProjectileInteractionSystem(world: World): void {
-  const destroyableEnemies = world.query(IsEnemy, Position, DestroyedStatus);
-
-  const projectiles = world.query(isProjectile, Position, DestroyedStatus);
+  const destroyableEnemies = world.query(
+    IsEnemy,
+    Position,
+    AABB,
+    DestroyedStatus
+  );
+  const projectiles = world.query(
+    isProjectile,
+    Position,
+    AABB,
+    DestroyedStatus
+  );
 
   destroyableEnemies.forEach((enemyEntity) => {
     const enemyAABB = enemyEntity.get(AABB)!;
