@@ -8,7 +8,6 @@ import {
   IsPlayer,
   isProjectile,
   Position,
-  RelativePos,
   ThrustVel,
   TwoWayControl,
   Velocity,
@@ -49,12 +48,11 @@ export function spawnEnemyDrone(
       squareSize: 25,
     }),
     IsEnemy,
-    FollowerOf(params.followingTarget),
-    // A position relative to the swarm
-    RelativePos({
+    FollowerOf(params.followingTarget)({
       posX: params.relativePosition.x,
       posY: params.relativePosition.y,
     }),
+    // A position relative to the swarm
     DestroyedStatus({ isDestroyed: false }),
     AABB({
       x: params.absolutePosition.x,

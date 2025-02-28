@@ -8,7 +8,6 @@ import {
   IsPlayer,
   isProjectile,
   Position,
-  RelativePos,
   ThrustVel,
   TwoWayControl,
   Velocity,
@@ -23,14 +22,24 @@ export function motionSystem(world: World, deps: { deltaTime: number }): void {
 }
 
 export function relativePositionFollowersSystem(world: World): void {
-  world
-    .query(Position, RelativePos, FollowerOf("*"))
-    .updateEach(([pos, relativePos], e) => {
+  world.query(Position, FollowerOf("*")).updateEach(
+    (
+      [
+        pos,
+        // https://github.com/pmndrs/koota/issues/57
+        _incorrectFollowerRelPos,
+      ],
+      e
+    ) => {
       const target = e.targetFor(FollowerOf)!;
-      const followedEntityTargetPos = target.get(Position)!;
-      pos.posX = followedEntityTargetPos.posX + relativePos.posX;
-      pos.posY = followedEntityTargetPos.posY + relativePos.posY;
-    });
+      const targetPos = target.get(Position)!;
+
+      const followerRelativePos = e.get(FollowerOf(target))!;
+
+      pos.posX = followerRelativePos.posX + targetPos.posX;
+      pos.posY = followerRelativePos.posY + targetPos.posY;
+    }
+  );
 }
 
 export function playerControlToThrustAndVelocitySystem(world: World): void {
