@@ -20,8 +20,8 @@ export const DrawableSquare = trait<DrawableSquare>({
   fillColor: "#ffffff",
   squareSize: 0,
 });
-export const Mesh = trait<{ mesh: THREE.Mesh }>({
-  mesh: new THREE.Mesh(),
+export const Mesh = trait<{ mesh: THREE.Object3D }>({
+  mesh: new THREE.Object3D(),
 });
 export const TwoWayControl = trait<TwoWayControl>({
   dir: "none",
@@ -33,6 +33,15 @@ export const DestroyedStatus = trait<DestroyedStatus>({
   isDestroyed: false,
 });
 export const AABB = trait<AABB>({ x: 0, y: 0, width: 0, height: 0 });
+export const AABBDebugBox = trait<{
+  box: THREE.Box3;
+  object: THREE.Object3D;
+  boxHelper: THREE.Box3Helper;
+}>({
+  object: new THREE.Object3D(),
+  box: new THREE.Box3(),
+  boxHelper: new THREE.Object3D() as THREE.Box3Helper,
+});
 
 export const IsEnemy = trait();
 export const IsPlayer = trait();

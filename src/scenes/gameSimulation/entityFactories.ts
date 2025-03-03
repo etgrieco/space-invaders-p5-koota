@@ -1,4 +1,4 @@
-import { Entity, World } from "koota";
+import { ConfigurableTrait, Entity, World } from "koota";
 import * as THREE from "three";
 import {
   AABB,
@@ -13,7 +13,9 @@ import {
   TwoWayControl,
   Mesh,
   Velocity,
+  AABBDebugBox,
 } from "./traits";
+import { GLTF } from "three/examples/jsm/Addons.js";
 
 export function spawnEnemySwarmAnchor(
   world: World,
@@ -38,8 +40,56 @@ export function spawnEnemyDrone(
     absolutePosition: { x: number; y: number };
     relativePosition: { x: number; y: number };
     followingTarget: Entity;
+  },
+  threeResources?: {
+    model: THREE.Object3D;
   }
 ): Entity {
+  const threeTraits: ConfigurableTrait[] = [];
+  const fallbackTraits: ConfigurableTrait[] = [];
+
+  if (threeResources) {
+    // compute AABB from underlying mesh
+    const box = new THREE.Box3().setFromObject(threeResources.model);
+    const _boxHelper = new THREE.Box3Helper(box, 0xff0000);
+    threeTraits.push(
+      Mesh({
+        mesh: threeResources.model,
+      })
+    );
+
+    threeTraits.push(
+      AABBDebugBox({
+        object: threeResources.model,
+        box: box,
+        boxHelper: _boxHelper,
+      })
+    );
+
+    const centerVec = new THREE.Vector3();
+    box.getCenter(centerVec);
+    const sizeVec = new THREE.Vector3();
+    box.getSize(sizeVec);
+
+    threeTraits.push(
+      AABB({
+        x: centerVec.x - (sizeVec.x / 2) * 100,
+        y: centerVec.y + (sizeVec.y / 2) * 100,
+        height: sizeVec.y * 100,
+        width: sizeVec.x * 100,
+      })
+    );
+  } else {
+    fallbackTraits.push(
+      AABB({
+        x: params.absolutePosition.x,
+        y: params.absolutePosition.y,
+        height: 25,
+        width: 25,
+      })
+    );
+  }
+
   return world.spawn(
     Position({
       posX: params.absolutePosition.x,
@@ -49,12 +99,6 @@ export function spawnEnemyDrone(
       fillColor: "#00ff1a",
       squareSize: 25,
     }),
-    Mesh({
-      mesh: new THREE.Mesh(
-        new THREE.BoxGeometry(0.25, 0.25, 0.25),
-        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-      ),
-    }),
     IsEnemy,
     FollowerOf(params.followingTarget)({
       posX: params.relativePosition.x,
@@ -62,12 +106,7 @@ export function spawnEnemyDrone(
     }),
     // A position relative to the swarm
     DestroyedStatus({ isDestroyed: false }),
-    AABB({
-      x: params.absolutePosition.x,
-      y: params.absolutePosition.y,
-      height: 25,
-      width: 25,
-    })
+    ...threeTraits
   );
 }
 
@@ -114,7 +153,7 @@ export function spawnProjectile(
     Mesh({
       mesh: new THREE.Mesh(
         new THREE.BoxGeometry(0.1, 0.1, 0.1),
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
+        new THREE.MeshBasicMaterial({ color: 0xff9900 })
       ),
     }),
     DestroyedStatus({ isDestroyed: false }),

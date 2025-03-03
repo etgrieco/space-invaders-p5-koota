@@ -1,0 +1,11 @@
+Model Information:
+* title:	Space Invader #1
+* source:	https://sketchfab.com/3d-models/space-invader-1-ffd5c24f485949c6a1856502f34c3ead
+* author:	alban (https://sketchfab.com/alban)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Space Invader #1" (https://sketchfab.com/3d-models/space-invader-1-ffd5c24f485949c6a1856502f34c3ead) by alban (https://sketchfab.com/alban) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

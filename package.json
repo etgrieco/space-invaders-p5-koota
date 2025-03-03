@@ -15,14 +15,12 @@
   "packageManager": "pnpm@10.5.2",
   "devDependencies": {
     "@tailwindcss/vite": "^4",
-    "@types/p5": "^1",
     "@types/three": "^0.174.0",
     "typescript": "~5.7.2",
     "vite": "^6.1.0"
   },
   "dependencies": {
     "koota": "^0.2.0",
-    "p5": "^1",
     "tailwindcss": "^4",
     "three": "^0.174.0"
   }

@@ -11,9 +11,6 @@ importers:
       koota:
         specifier: ^0.2.0
         version: 0.2.0(react@18.3.1)(three@0.174.0)
-      p5:
-        specifier: ^1
-        version: 1.11.3
       tailwindcss:
         specifier: ^4
         version: 4.0.8
@@ -24,9 +21,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4
         version: 4.0.7(vite@6.1.1(jiti@2.4.2)(lightningcss@1.29.1))
-      '@types/p5':
-        specifier: ^1
-        version: 1.7.6
       '@types/three':
         specifier: ^0.174.0
         version: 0.174.0
@@ -368,9 +362,6 @@ packages:
   '@types/estree@1.0.6':
     resolution: {integrity: sha512-AYnb1nQyY49te+VRAVgmzfcgjYS91mY5P0TKUDCLEM+gNnA+3T6rWITXRLYCpahpqSQbN5cE+gHpnPyXjHWxcw==}
 
-  '@types/p5@1.7.6':
-    resolution: {integrity: sha512-6pLTOo0V3N5jZb5nTwjiv3lPHLK3Z/TjbhQUj8CTWXocUk1Z/f6OHTp3Pcwi1BhWnf5gqKUcyEb1gP0KIJuQgw==}
-
   '@types/stats.js@0.17.3':
     resolution: {integrity: sha512-pXNfAD3KHOdif9EQXZ9deK82HVNaXP5ZIF5RP2QG6OQFNTaY2YIetfrE9t528vEreGQvEPRDDc8muaoYeK0SxQ==}
 
@@ -513,9 +504,6 @@ packages:
     resolution: {integrity: sha512-WNLf5Sd8oZxOm+TzppcYk8gVOgP+l58xNy58D0nbUnOxOWRWvlcCV4kUF7ltmI6PsrLl/BgKEyS4mqsGChFN0w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
-
-  p5@1.11.3:
-    resolution: {integrity: sha512-5eiyuZ3Pvo6ucr3nr8AzD+qwpoleiIEF2a2HmiO6PJM1tnbD0LmLlckZyYGJATs0tdmRjc37Muh6KPS4d1FHHg==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -794,8 +782,6 @@ snapshots:
 
   '@types/estree@1.0.6': {}
 
-  '@types/p5@1.7.6': {}
-
   '@types/stats.js@0.17.3': {}
 
   '@types/three@0.174.0':
@@ -916,8 +902,6 @@ snapshots:
   meshoptimizer@0.18.1: {}
 
   nanoid@3.3.8: {}
-
-  p5@1.11.3: {}
 
   picocolors@1.1.1: {}
 
