@@ -7,7 +7,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          p5: ["p5"],
+          three: ["three"],
         },
       },
     },

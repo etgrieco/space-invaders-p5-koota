@@ -2,7 +2,6 @@ import { World } from "koota";
 import {
   AABB,
   DestroyedStatus,
-  DrawableSquare,
   FollowerOf,
   IsEnemy,
   IsPlayer,
@@ -14,9 +13,7 @@ import {
   Velocity,
   AABBDebugBox,
 } from "./traits";
-import p5 from "p5";
 import { ThreeDeps } from "../gameSimulation";
-import { Box3Helper } from "three";
 
 export function motionSystem(world: World, deps: { deltaTime: number }): void {
   world.query(Position, Velocity).updateEach(([pos, vel]) => {
@@ -106,21 +103,6 @@ export function sideEffectOnPlayerLoseConditionSystem(
   }
 }
 
-export function drawSquaresSystem(world: World, p: p5) {
-  world.query(Position, DrawableSquare).forEach((e) => {
-    // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
-    const isDestroyed = !!e.get(DestroyedStatus)?.isDestroyed;
-    if (isDestroyed) return;
-
-    const positionValues = e.get(Position)!;
-    const squareValues = e.get(DrawableSquare)!;
-    p.push();
-    p.fill(squareValues.fillColor);
-    p.square(positionValues.posX, positionValues.posY, squareValues.squareSize);
-    p.pop();
-  });
-}
-
 export function updateMeshPositions_Three(world: World, three: ThreeDeps) {
   const POSITION_SCALAR = 0.01;
 
@@ -176,17 +158,6 @@ export function updateMeshDebugAABBPositions_Three(
   }
 }
 
-export function drawABBSystem_debug(world: World, p: p5) {
-  world.query(AABB).forEach((e) => {
-    const aabbValues = e.get(AABB)!;
-    p.push();
-    p.stroke("white");
-    p.fill(255, 255, 255, 0); // transparent fill
-    p.rect(aabbValues.x, aabbValues.y, aabbValues.width, aabbValues.height);
-    p.pop();
-  });
-}
-
 export function enemyProjectileInteractionSystem(world: World): void {
   const destroyableEnemies = world.query(
     IsEnemy,
@@ -228,28 +199,6 @@ export function enemyProjectileInteractionSystem(world: World): void {
   });
 }
 
-export function outOfBoundsCullingSystem(
-  world: World,
-  params: {
-    minX: number;
-    maxX: number;
-    minY: number;
-    maxY: number;
-  }
-): void {
-  world.query(Position).forEach((e) => {
-    const pos = e.get(Position)!;
-    if (
-      pos.posX < params.minX ||
-      pos.posX > params.maxX ||
-      pos.posY < params.minY ||
-      pos.posY > params.maxY
-    ) {
-      e.destroy();
-    }
-  });
-}
-
 export function outOfBoundsCullingSystem_Three(
   world: World,
   params: {
@@ -274,15 +223,6 @@ export function outOfBoundsCullingSystem_Three(
       pos.posY < params.minY ||
       pos.posY > params.maxY
     ) {
-      e.destroy();
-    }
-  });
-}
-
-export function destroyedEntitiesCullingSystem(world: World) {
-  world.query(DestroyedStatus).forEach((e) => {
-    const { isDestroyed } = e.get(DestroyedStatus)!;
-    if (isDestroyed) {
       e.destroy();
     }
   });
