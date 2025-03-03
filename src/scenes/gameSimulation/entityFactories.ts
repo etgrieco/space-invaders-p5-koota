@@ -15,7 +15,6 @@ import {
   Velocity,
   AABBDebugBox,
 } from "./traits";
-import { GLTF } from "three/examples/jsm/Addons.js";
 
 export function spawnEnemySwarmAnchor(
   world: World,
