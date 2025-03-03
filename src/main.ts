@@ -1,5 +1,6 @@
 import p5 from "p5";
 import * as THREE from "three";
+import { GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { introSimulationFactory, drawIntro } from "./scenes/introSimulation";
 import {
   gameSimulationFactory,
@@ -68,7 +69,7 @@ function myP5(p: p5) {
     preload() {
       // can preload assets here...
       font = p.loadFont(
-        new URL("/public/fonts/inconsolata.otf", import.meta.url).href
+        new URL("/fonts/inconsolata.otf", import.meta.url).href
       );
     },
     setup() {
@@ -147,9 +148,21 @@ function main(rootElement: HTMLElement) {
   new p5(myP5, rootElement);
 }
 
-function mainThree(mountingEl: HTMLElement) {
+async function mainThree(mountingEl: HTMLElement) {
   const WIDTH = 800;
   const HEIGHT = 600;
+
+  const loader = new GLTFLoader();
+  const [spaceInvaderScene] = await Promise.all([
+    new Promise<GLTF>((res, rej) => {
+      loader.load(
+        new URL("/models/space-invader-alien/scene.gltf", import.meta.url).href,
+        res,
+        undefined,
+        rej
+      );
+    }),
+  ]);
 
   const clock = new THREE.Clock();
   const scene = new THREE.Scene();
@@ -162,12 +175,20 @@ function mainThree(mountingEl: HTMLElement) {
 
   camera.position.z = 5;
 
+  // basic light?
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+  directionalLight.position.set(5, 10, 5); // Adjust position
+  scene.add(directionalLight);
+
   const gameSim = gameSimulationFactory_Three(
     {
       camera,
       scene,
       webGlRenderer: renderer,
       getDeltaTime: () => clock.getDelta() * 1000,
+      externalResources: {
+        spaceInvadersAlien: spaceInvaderScene,
+      },
     },
     // TODO: for now, do nothing
     () => {}
@@ -199,6 +220,11 @@ function mainThree(mountingEl: HTMLElement) {
       // do logic stuff
       gameSim.tick();
     }
+
+    directionalLight.position.x += 0.01;
+    directionalLight.position.y += 0.01;
+    directionalLight.position.z += 0.01;
+
     // then render
     renderer.render(scene, camera);
   }

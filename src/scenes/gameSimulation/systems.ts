@@ -12,9 +12,11 @@ import {
   TwoWayControl,
   Mesh,
   Velocity,
+  AABBDebugBox,
 } from "./traits";
 import p5 from "p5";
 import { ThreeDeps } from "../gameSimulation";
+import { Box3Helper } from "three";
 
 export function motionSystem(world: World, deps: { deltaTime: number }): void {
   world.query(Position, Velocity).updateEach(([pos, vel]) => {
@@ -138,7 +140,40 @@ export function updateMeshPositions_Three(world: World, three: ThreeDeps) {
     return [mesh];
   });
 
-  three.scene.add(...meshes);
+  if (meshes.length) {
+    three.scene.add(...meshes);
+  }
+}
+export function updateMeshDebugAABBPositions_Three(
+  world: World,
+  three: ThreeDeps
+) {
+  // const POSITION_SCALAR = 0.01;
+
+  const aabbObjs = world.query(AABBDebugBox).flatMap((e) => {
+    // If it also has a destroyable trait, check isDestroyed; don't render if destroyed
+    const isDestroyed = !!e.get(DestroyedStatus)?.isDestroyed;
+    if (isDestroyed) {
+      return [];
+    }
+
+    const { box, object, boxHelper } = e.get(AABBDebugBox)!;
+
+    // const positionValues = e.get(Position)!;
+
+    // TODO: Why is this box not moving??
+    // re-set the box position
+    box.setFromObject(object);
+    // (obj as Box3Helper).box.position.x = positionValues.posX * POSITION_SCALAR;
+    // (obj as Box3Helper).box.position.y = positionValues.posY * POSITION_SCALAR;
+
+    // (obj as Box3Helper).box.rotation.y += 0.01;
+    return [boxHelper];
+  });
+
+  if (aabbObjs.length) {
+    three.scene.add(...aabbObjs);
+  }
 }
 
 export function drawABBSystem_debug(world: World, p: p5) {
@@ -177,6 +212,7 @@ export function enemyProjectileInteractionSystem(world: World): void {
       if (isProjectileDestroyed) return; // no-op if already destroyed
 
       const projAABB = projEntity.get(AABB)!;
+
       const isCollided =
         projAABB.x < enemyAABB.x + enemyAABB.width &&
         projAABB.x + projAABB.width > enemyAABB.x &&
@@ -229,6 +265,9 @@ export function outOfBoundsCullingSystem_Three(
     if (e.has(Mesh)) {
       three.scene.remove(e.get(Mesh)!.mesh);
     }
+    if (e.has(AABBDebugBox)) {
+      three.scene.remove(e.get(AABBDebugBox)!.boxHelper);
+    }
     if (
       pos.posX < params.minX ||
       pos.posX > params.maxX ||
@@ -271,7 +310,7 @@ export function synchronizePositionAABBSystem(world: World) {
     .query(Position, AABB)
     .select(Position, AABB)
     .updateEach(([pos, aabb]) => {
-      aabb.x = pos.posX;
-      aabb.y = pos.posY;
+      aabb.x = pos.posX - aabb.width / 2;
+      aabb.y = pos.posY - aabb.width / 2;
     });
 }

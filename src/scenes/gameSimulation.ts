@@ -2,7 +2,12 @@ import p5 from "p5";
 import * as THREE from "three";
 import { TStateTickMachine } from "./types";
 import { createWorld, Entity, World } from "koota";
-import { Position, TwoWayControl } from "./gameSimulation/traits";
+import {
+  IsEnemy,
+  Mesh,
+  Position,
+  TwoWayControl,
+} from "./gameSimulation/traits";
 import {
   destroyedEntitiesCullingSystem,
   drawABBSystem_debug,
@@ -17,6 +22,7 @@ import {
   synchronizePositionAABBSystem,
   destroyedEntitiesCullingSystem_Three,
   outOfBoundsCullingSystem_Three,
+  updateMeshDebugAABBPositions_Three,
 } from "./gameSimulation/systems";
 import {
   spawnEnemyDrone,
@@ -26,12 +32,17 @@ import {
 } from "./gameSimulation/entityFactories";
 import { enemySwarmMovementPatternSystem } from "./gameSimulation/adhocSystems";
 import { debugCollisions } from "./gameSimulation/debugSystems";
+import { GLTF } from "three/examples/jsm/Addons.js";
+import { enemyDroneBasicMesh } from "./gameSimulation/meshFactories";
 
 export type ThreeDeps = {
   camera: THREE.Camera;
   scene: THREE.Scene;
   webGlRenderer: THREE.WebGLRenderer;
   getDeltaTime: () => number;
+  externalResources: {
+    spaceInvadersAlien: GLTF;
+  };
 };
 
 const DEBUG_MODE = false;
@@ -107,18 +118,29 @@ function createInitialGameSimulationState_Three(
   // 5 x 10 grid of enemy ships
   for (let col = 0; col < 10; col++) {
     for (let row = 0; row < 5; row++) {
+      // perform a sanitizing scale on the model...
+      const droneObj =
+        three.externalResources.spaceInvadersAlien.scene.clone(true);
+      droneObj.scale.multiplyScalar(1 / 50);
+
       // spawn enemy ships
-      spawnEnemyDrone(world, {
-        absolutePosition: {
-          x: enemySwarmAnchorPosition.posX + col * 50,
-          y: enemySwarmAnchorPosition.posY + row * 50,
+      spawnEnemyDrone(
+        world,
+        {
+          absolutePosition: {
+            x: enemySwarmAnchorPosition.posX + col * 50,
+            y: enemySwarmAnchorPosition.posY + row * 50,
+          },
+          relativePosition: {
+            x: col * 50,
+            y: row * 50,
+          },
+          followingTarget: enemySwarmAnchorEntity,
         },
-        relativePosition: {
-          x: col * 50,
-          y: row * 50,
-        },
-        followingTarget: enemySwarmAnchorEntity,
-      });
+        {
+          model: droneObj,
+        }
+      );
     }
   }
 
@@ -280,6 +302,12 @@ function drawRoutine(world: World, p: p5) {
 
 function drawRoutine_Three(world: World, three: ThreeDeps) {
   updateMeshPositions_Three(world, three);
+  updateMeshDebugAABBPositions_Three(world, three);
+  // rotate some enemies...
+  world.query(IsEnemy, Mesh).forEach((e) => {
+    const { mesh } = e.get(Mesh)!;
+    mesh.rotation.y += 0.01;
+  });
 }
 
 export function gameSimulationFactory_Three(
