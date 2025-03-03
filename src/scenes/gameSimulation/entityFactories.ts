@@ -34,6 +34,7 @@ export function spawnEnemySwarmAnchor(
   );
 }
 
+const enemyDrone_debug = false;
 export function spawnEnemyDrone(
   world: World,
   params: {
@@ -50,21 +51,24 @@ export function spawnEnemyDrone(
 
   if (threeResources) {
     // compute AABB from underlying mesh
-    const box = new THREE.Box3().setFromObject(threeResources.model);
-    const _boxHelper = new THREE.Box3Helper(box, 0xff0000);
+
     threeTraits.push(
       Mesh({
         mesh: threeResources.model,
       })
     );
 
-    threeTraits.push(
-      AABBDebugBox({
-        object: threeResources.model,
-        box: box,
-        boxHelper: _boxHelper,
-      })
-    );
+    const box = new THREE.Box3().setFromObject(threeResources.model);
+    if (enemyDrone_debug) {
+      const boxHelper = new THREE.Box3Helper(box, 0xff0000);
+      threeTraits.push(
+        AABBDebugBox({
+          object: threeResources.model,
+          box: box,
+          boxHelper: boxHelper,
+        })
+      );
+    }
 
     const centerVec = new THREE.Vector3();
     box.getCenter(centerVec);
